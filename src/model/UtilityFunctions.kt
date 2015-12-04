@@ -14,11 +14,13 @@ fun String.splitOnSpace(vararg ignore: Char) : List<String> {
     return this.split(' ').map { it.trimEnd { it in ignore } }
 }
 
-fun ByteArray.writeToFile(file : File) : Unit {
+fun ByteArray.writeToFile(file : File, flushAndClose : Boolean = true) : Unit {
     val fileOutputStream = FileOutputStream(file)
     fileOutputStream.write(this)
-    fileOutputStream.flush()
-    fileOutputStream.close()
+    if (flushAndClose) {
+        fileOutputStream.flush()
+        fileOutputStream.close()
+    }
 }
 
 
@@ -53,7 +55,18 @@ fun <T> ReversibleIterator<T>.size() : Int {
 /**
  * Return an array of String split every n-characters
  */
-fun String.splitOn(n : Int) : Array<String> {
-//    this.spl
-    return emptyArray()
+fun String.splitEvery(n : Int) : Array<String> {
+    val properLength = this.length / n + (if (this.length % n == 0) 0 else 1)
+
+    val subStrings = Array(properLength, { ind ->
+        val startInd = ind * n
+        if (ind == properLength) {
+            this.substring(beginIndex = startInd, endIndex = this.length)
+        } else this.substring(beginIndex = startInd, endIndex = startInd + n)
+    })
+    return subStrings
+}
+
+fun String.Companion.empty() : String {
+    return ""
 }
