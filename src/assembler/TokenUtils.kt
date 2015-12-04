@@ -1,6 +1,6 @@
 package assembler
 
-import com.fox.general.Integers
+import com.fox.general.IntegerExtension
 import com.fox.io.log.ConsoleColor
 import com.fox.io.log.ConsoleLogger.debug
 import com.fox.io.log.ConsoleLogger.writeLine
@@ -46,10 +46,10 @@ fun parseImmediateValue(string : String) : Int {
         debug("string = [${string}]")
     }
 
-    val tryParse = Integers.tryParse(string)
+    val tryParse = IntegerExtension.tryParse(string)
 
-    if (tryParse.item1) {
-        return tryParse.item2
+    if (tryParse.first) {
+        return tryParse.second
     }
 
     val subContent = string.substring(2) // the '3F20' in '0x3F20'

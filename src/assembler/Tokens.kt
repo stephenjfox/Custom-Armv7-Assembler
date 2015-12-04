@@ -40,13 +40,9 @@ abstract class DataOperationCommandToken(content : String) : CommandToken(conten
 
 class MoveCommand : DataOperationCommandToken {
     override val conditionInt : Int
-        get() = field
     val isMovT : Boolean
-        get () = field
     val isMovW : Boolean
-        get () = field
     override val setSBit : Boolean
-        get () = field
 
     constructor(content : String) : super(content) {
         var finMovT = false
@@ -102,7 +98,13 @@ class RegisterToken : Token {
 
     val registerNumber : Int
     val nibble : String
-        get() = toBinaryString(registerNumber)
+        get() {
+            var binaryString = toBinaryString(registerNumber)
+            while (binaryString.length < 4) { // pad with zeroes
+                binaryString = "0$binaryString"
+            }
+            return binaryString
+        }
 
     constructor(content : String) : super(content) {
         registerNumber = parseInt(content.substring(1)) // the '15' in 'R15'
