@@ -92,10 +92,11 @@ fun TokenStream.spliceLines() : List<TokenStream> {
     streamList.add(ArrayList())
 
     for (token in this) {
-        streamList[currentStreamIndex].add(token)
         if (token is NewLineToken) {
             streamList.add(ArrayList())
             currentStreamIndex += 1
+        } else {
+            streamList[currentStreamIndex].add(token)
         }
     }
 

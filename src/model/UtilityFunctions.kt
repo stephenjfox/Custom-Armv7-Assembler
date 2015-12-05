@@ -61,8 +61,8 @@ fun String.splitEvery(n : Int) : Array<String> {
     val subStrings = Array(properLength, { ind ->
         val startInd = ind * n
         if (ind == properLength) {
-            this.substring(beginIndex = startInd, endIndex = this.length)
-        } else this.substring(beginIndex = startInd, endIndex = startInd + n)
+            this.substring(startIndex = startInd, endIndex = this.length)
+        } else this.substring(startIndex = startInd, endIndex = startInd + n)
     })
     return subStrings
 }

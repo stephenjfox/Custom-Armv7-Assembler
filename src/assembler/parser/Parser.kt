@@ -1,16 +1,9 @@
 package assembler.parser
 
-import assembler.AddOperationToken
-import assembler.BranchCommand
-import assembler.LoadCommand
-import assembler.MoveCommand
-import assembler.OrOperationToken
-import assembler.StoreOperationToken
-import assembler.SubtractOperationToken
-import assembler.TokenStream
-import assembler.spliceLines
+import assembler.*
 import com.fox.general.LongExtension
 import com.fox.io.log.ConsoleLogger
+import model.GlobalConfig
 import model.splitEvery
 import model.writeToFile
 import java.io.File
@@ -24,26 +17,32 @@ import java.nio.file.Path
 fun parseTokensToFile(tokenStream : TokenStream, outputFile : File) : Path {
     val linesOfTokens = tokenStream.spliceLines()
 
-    val byteBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
+    // ARMv7-R 'word's are 32-bit, so we use Integer for this :P
+    val byteBuffer = ByteBuffer.allocate(Integer.BYTES * linesOfTokens.size)
 
-    linesOfTokens.forEach {
-        println(it)
-        val parseBinary = parseTokenLine(it)
+    linesOfTokens.forEachIndexed { index, stream ->
+        println(stream)
+        val parseBinary = parseTokenLine(stream)
         val endianFix = fixEndian(parseBinary)
-        ConsoleLogger.debug("endianFix = $endianFix")
+
+        if (GlobalConfig.getBoolean("verbose")) {
+            ConsoleLogger.debug("endianFix = $endianFix")
+        }
 
         val tryParse = LongExtension.tryParse(endianFix, 2)
 
         if (tryParse.first) {
             ConsoleLogger.debug("Long that I'm 'putting' = ${tryParse.second}")
-            byteBuffer.putLong(tryParse.second)
+            byteBuffer.putInt(tryParse.second.toInt())
+
+            val bytes = byteBuffer.array()
+            bytes.writeToFile(outputFile, index == linesOfTokens.lastIndex)
+
+            println(byteBuffer)
         }
     }
 
-    val bytes = byteBuffer.array()
-    bytes.writeToFile(outputFile, false)
 
-    println(byteBuffer)
     return outputFile.toPath()
 }
 
@@ -53,9 +52,11 @@ fun parseTokensToFile(tokenStream : TokenStream, outputFile : File) : Path {
 private fun fixEndian(parseBinary : String) : String {
     val reversedArray = parseBinary.splitEvery(8)
             .reversedArray()
-    ConsoleLogger.debug("Reversed binary as Array = ${reversedArray.joinToString()}")
-    ConsoleLogger.debug("The above as hex " +
-            "${reversedArray.map { Integer.toHexString(Integer.parseInt(it, 2)) }}")
+    if (GlobalConfig.getBoolean("verbose")) {
+        ConsoleLogger.debug("Reversed binary as Array = ${reversedArray.joinToString()}")
+        ConsoleLogger.debug("The above as hex " +
+                "${reversedArray.map { Integer.toHexString(Integer.parseInt(it, 2)) }}")
+    }
     val endianFix = reversedArray
             .reduce({ acc, curr -> acc.plus(curr) })
     return endianFix
@@ -67,9 +68,8 @@ private fun parseTokenLine(tokenStream : TokenStream) : String {
 
     val token = tokenIterator.next()
     var ret = when (token) {
-        is LoadCommand -> loadParseLogic(token, tokenIterator)
-        // TODO: this StoreOperationToken needs doing
-        is StoreOperationToken -> storeParseLogic(token, tokenIterator)
+        is LoadCommand,
+        is StoreOperationToken -> loadStoreParseLogic(token as CommandToken, tokenIterator)
         is AddOperationToken -> "" // TODO: this AddOperationToken needs doing
         is SubtractOperationToken -> "" // TODO: this SubtractOperationToken needs doing
         is OrOperationToken -> "" // TODO: this OrOperationToken needs doing

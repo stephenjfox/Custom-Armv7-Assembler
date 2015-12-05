@@ -199,7 +199,7 @@ class Lexer(val sourceFile : File) {
         val register1Token = Tokens.create(TokenType.Register, stringLineInputs[1])
         val register2Token = Tokens.create(TokenType.Register, stringLineInputs[2])
         if (verboseTyping) {
-            writeLine("stringLineInputs = ${stringLineInputs} yielded tokens:" +
+            writeLine("stringLineInputs = $stringLineInputs yielded tokens:" +
                     "\tload/strToken = {$principalToken}" +
                     "\tR1Token = {$register1Token}" +
                     "\tR2Token = {$register2Token}")
@@ -315,7 +315,7 @@ class Lexer(val sourceFile : File) {
             } else {
                 poundEx - 1
             }
-            it.substring(beginIndex = 0, endIndex = indOfComment)
+            it.substring(startIndex = 0, endIndex = indOfComment)
         }.filter { it.length > 0 }.reduce { str, s -> str.plus(delimiter).plus(s) }
 
         if (verboseTyping) {
