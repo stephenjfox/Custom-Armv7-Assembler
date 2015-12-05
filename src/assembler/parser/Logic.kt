@@ -1,45 +1,53 @@
 package assembler.parser
 
-import assembler.AddOperationToken
-import assembler.CommandToken
-import assembler.DataOperationCommandToken
-import assembler.ImmediateToken
-import assembler.LoadCommand
-import assembler.RegisterToken
-import assembler.StoreOperationToken
-import assembler.SubtractOperationToken
-import assembler.Token
+import assembler.*
 import com.fox.general.PredicateTests.isTrue
 import com.fox.io.log.ConsoleLogger
 import model.GlobalConfig
 import model.ReversibleIterator
 import model.size
+import java.util.*
 
 /**
+ * The logical functions that each handle a specific type of command: MOV(W/T/S), SUB, LDR, etc.
+ *
+ * These are not aggregated into a class, because that classes sole purpose would be to group these
+ * functions. The behaviors are associated only in that they work on similar data. Thus, they are
+ * in the same file.
+ *
  * Created by stephen on 12/4/15.
  */
-// returns the binary string of the operation encoding
-fun loadParseLogic(loadToken : LoadCommand, iterator : ReversibleIterator<Token>) : String {
+
+fun moveParseLogic(moveToken : MoveCommand, iterator : ReversibleIterator<Token>) : String {
+
+    var registerBit = '1' // is an immediate value. BIT 25
+    val iteratorSize = iterator.size()
+    val condition = Integer.toBinaryString(moveToken.conditionInt)
+    val sBit = (if (moveToken.setSBit) '1' else '0')
+
     val builder = StringBuilder(32)
 
-    var PUWTriple = Triple('1', '1', '0') // Bits P, U, and W saying don't PUSHback, add UP and don't WRITEback
+    if (GlobalConfig.getBoolean("verbose")) {
+        ConsoleLogger.debug("Iterator.size = $iteratorSize")
+    }
 
-    val iteratorSize = iterator.size()
-    ConsoleLogger.debug("Iterator.size = $iteratorSize")
+    // TODO: refactor out the repeated code blocks
     when (iteratorSize) {
         3 -> {
-            // treat like a 4-token instruction, with '0' for an immediate value
             val registerDest = iterator.next() as RegisterToken
-            val registerSource = iterator.next() as RegisterToken
-            // FIXME: the last '1' here is what toggles between 'STR' and 'LDR'. DECOUPLE
-            val immOpCode = "010" + PUWTriple.first + PUWTriple.second + '0' + PUWTriple.third + '1'
-            // FIXME: a 0_ here^ means immediate value
-            builder.append(Integer.toBinaryString(loadToken.conditionInt))
-            builder.append(immOpCode)
-            builder.append(registerSource.nibble)
-            builder.append(registerDest.nibble)
-            // pad the last imm12 bits with 0s
-            builder.append("000000000000")
+            val immAtLeast12Token = iterator.next() as ImmediateToken
+            val staticBits = ("00${registerBit}1" + (
+                    if (!(moveToken.isMovT || moveToken.isMovW)) "101$sBit" // MOV(S)
+                    else if (moveToken.isMovW) "0000" // MOVW
+                    else "0100") /*MOVT*/)
+            val immBinString = paddingCheck(Integer.toBinaryString(immAtLeast12Token.value), 16)
+            val (imm4, imm12) = splitImmediateString(immBinString, 4, 12)
+            // this is the order of the bits for the move command.
+            builder.append(condition)
+                    .append(staticBits)
+                    .append(imm4)
+                    .append(registerDest.nibble)
+                    .append(imm12)
         }
     }
     val toString = builder.toString()
@@ -49,47 +57,26 @@ fun loadParseLogic(loadToken : LoadCommand, iterator : ReversibleIterator<Token>
         val hexString = java.lang.Long.toHexString(binAsInt)
         ConsoleLogger.debug("Built binary $toString. Hex: $hexString")
     }
-
     return toString
 }
 
-fun storeParseLogic(storeToken : StoreOperationToken, iterator : ReversibleIterator<Token>) : String {
-    // TODO: fill in this logic
-    val builder = StringBuilder(32)
-
-    var PUWTriple = Triple('1', '1', '0') // Bits P, U, and W saying don't PUSHback, add UP and don't WRITEback
-
-    val iteratorSize = iterator.size()
-    ConsoleLogger.debug("Iterator.size = $iteratorSize")
-    when (iteratorSize) {
-        3 -> {
-            // treat like a 4-token instruction, with '0' for an immediate value
-            val registerDest = iterator.next() as RegisterToken
-            val registerSource = iterator.next() as RegisterToken
-            // FIXME: the last '0' here is what toggles between 'STR' and 'LDR'. DECOUPLE
-            val immOpCode = "010" + PUWTriple.first + PUWTriple.second + '0' + PUWTriple.third + '0'
-            builder.append(Integer.toBinaryString(storeToken.conditionInt))
-            builder.append(immOpCode)
-            builder.append(registerSource.nibble)
-            builder.append(registerDest.nibble)
-            // pad the last imm12 bits with 0s
-            builder.append("000000000000")
-        }
-    }
-    val toString = builder.toString()
-    return toString
-}
-
+/**
+ * Takes in a Load or Store [DataOperationCommandToken], along with the rest of tokens that represent its
+ * parameters.
+ *
+ * throw [IllegalStateException] if the passed arguments manage to be neither [LoadOperationToken] nor
+ * [StoreOperationToken]
+ */
 fun loadStoreParseLogic(ldrStrToken : CommandToken, iterator : ReversibleIterator<Token>) : String {
 
-    isTrue(ldrStrToken is LoadCommand || ldrStrToken is StoreOperationToken)
+    isTrue(ldrStrToken is LoadOperationToken || ldrStrToken is StoreOperationToken)
 
     val builder = StringBuilder(32)
     var PUWTriple = Triple('1', '1', '0') // Bits P, U, and W saying don't PUSHback, add UP and don't WRITEback
 
     val iteratorSize = iterator.size()
     var rBit = '0' // is working with a register for the 'value' that will be operated on
-    val identBit = (if (ldrStrToken is LoadCommand) 1 else 0)
+    val identBit = (if (ldrStrToken is LoadOperationToken) 1 else 0)
     val bit22 = '0'
 
     if (GlobalConfig.getBoolean("verbose")) {
@@ -109,7 +96,7 @@ fun loadStoreParseLogic(ldrStrToken : CommandToken, iterator : ReversibleIterato
             builder.append("000000000000")
         }
         4 -> {
-            // TODO: using the modified immediate constants, right rotation on pg. 200/2734
+            // TODO: generate using the modified immediate constants, bit rotation on pg. 200/2734
         }
     }
     val toString = builder.toString()
@@ -176,4 +163,21 @@ fun paddingCheck(binary : String, capacity : Int) : String {
         "0".repeat(shortBy) + binary
     })
     return returnStr
+}
+
+fun splitImmediateString(binary : String, vararg chunkSizes : Int) : List<String> {
+    isTrue(binary.length <= chunkSizes.sum())
+
+    var currentIndex = 0
+    val retList = ArrayList<String>()
+
+    for (chunkSize in chunkSizes) {
+        val strToAdd = binary.substring(currentIndex, chunkSize + currentIndex)
+        currentIndex += chunkSize
+        retList += strToAdd
+    }
+
+    if (currentIndex != binary.lastIndex) retList += binary.substring(currentIndex)
+
+    return retList
 }

@@ -82,7 +82,7 @@ class MoveCommand : DataOperationCommandToken {
     }
 }
 
-class LoadCommand : CommandToken {
+class LoadOperationToken : CommandToken {
 
     override val conditionInt : Int
         get() = field
@@ -225,7 +225,7 @@ object Tokens {
             TokenType.Move -> MoveCommand(baseContent)
             TokenType.Branch -> BranchCommand(baseContent)
             TokenType.Shift -> ShiftToken(baseContent)
-            TokenType.Load -> LoadCommand(baseContent)
+            TokenType.Load -> LoadOperationToken(baseContent)
             TokenType.NewLine -> NewLineToken()
             TokenType.Add -> AddOperationToken(baseContent)
             TokenType.Subtract -> SubtractOperationToken(baseContent)
