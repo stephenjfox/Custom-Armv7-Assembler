@@ -46,6 +46,27 @@ fun parseTokensToFile(tokenStream : TokenStream, outputFile : File) : Path {
     return outputFile.toPath()
 }
 
+private fun parseTokenLine(tokenStream : TokenStream) : String {
+
+    val tokenIterator = tokenStream.iterator()
+
+    val token = tokenIterator.next()
+    var ret = when (token) {
+        is LoadCommand,
+        is StoreOperationToken -> loadStoreParseLogic(token as CommandToken, tokenIterator)
+        is SubtractOperationToken, is AddOperationToken -> {
+            // TODO: this AddOperationToken needs doing
+            addSubOperationParse(token as DataOperationCommandToken, tokenIterator)
+        }
+        is OrOperationToken -> "" // TODO: this OrOperationToken needs doing
+        is MoveCommand -> "" // TODO: this MoveCommand needs doing
+        is BranchCommand -> "" // TODO: this BranchCommand needs doing
+        else -> "" // shouldn't be able to make it here. Should I throw an error?
+    }
+
+    return ret
+}
+
 /**
  * takes a binary string. otherwise error
  */
@@ -60,23 +81,4 @@ private fun fixEndian(parseBinary : String) : String {
     val endianFix = reversedArray
             .reduce({ acc, curr -> acc.plus(curr) })
     return endianFix
-}
-
-private fun parseTokenLine(tokenStream : TokenStream) : String {
-
-    val tokenIterator = tokenStream.iterator()
-
-    val token = tokenIterator.next()
-    var ret = when (token) {
-        is LoadCommand,
-        is StoreOperationToken -> loadStoreParseLogic(token as CommandToken, tokenIterator)
-        is AddOperationToken -> "" // TODO: this AddOperationToken needs doing
-        is SubtractOperationToken -> "" // TODO: this SubtractOperationToken needs doing
-        is OrOperationToken -> "" // TODO: this OrOperationToken needs doing
-        is MoveCommand -> "" // TODO: this MoveCommand needs doing
-        is BranchCommand -> "" // TODO: this BranchCommand needs doing
-        else -> "" // shouldn't be able to make it here. Should I throw an error?
-    }
-
-    return ret
 }

@@ -1,9 +1,13 @@
 package assembler.parser
 
+import assembler.AddOperationToken
 import assembler.CommandToken
+import assembler.DataOperationCommandToken
+import assembler.ImmediateToken
 import assembler.LoadCommand
 import assembler.RegisterToken
 import assembler.StoreOperationToken
+import assembler.SubtractOperationToken
 import assembler.Token
 import com.fox.general.PredicateTests.isTrue
 import com.fox.io.log.ConsoleLogger
@@ -117,4 +121,59 @@ fun loadStoreParseLogic(ldrStrToken : CommandToken, iterator : ReversibleIterato
     }
 
     return toString
+}
+
+fun addSubOperationParse(addSubToken : DataOperationCommandToken, iterator : ReversibleIterator<Token>) : String {
+    // no PUW bits this time 'round.
+    if (addSubToken is AddOperationToken || addSubToken is SubtractOperationToken) {
+
+        val builder = StringBuilder()
+        val iteratorSize = iterator.size()
+        var registerBit = '0' // todo: use this thing later
+        val idPair = (if (addSubToken is AddOperationToken) "10" else "01")
+        val sBit = (if (addSubToken.setSBit) '1' else '0')
+        val registerDest = iterator.next() as RegisterToken
+        val registerSource = iterator.next() as RegisterToken
+
+        when (iteratorSize) {
+            4 -> {
+                registerBit = '1' // in this case, '1' means immediate. Because ARM
+                val imm12Token = iterator.next() as ImmediateToken
+                // We're doing the immediate ADD/SUB
+                val staticBits = "00" + registerBit + '0' + idPair + '0' + sBit
+                builder.append(Integer.toBinaryString(addSubToken.conditionInt))
+                        .append(staticBits)
+                        .append(registerSource.nibble)
+                        .append(registerDest.nibble)
+
+                val immBinary = Integer.toBinaryString(imm12Token.value)
+
+                builder.append(paddingCheck(immBinary, 12))
+            }
+        }
+
+        val toString = builder.toString()
+
+        if (GlobalConfig.getBoolean("debug")) {
+            val binAsInt = java.lang.Long.parseLong(toString, 2)
+            val hexString = java.lang.Long.toHexString(binAsInt)
+            ConsoleLogger.debug("Built binary $toString. Hex: $hexString")
+        }
+
+        return toString
+    } else {
+        throw IllegalArgumentException("addSubToken parameter was not valid: $addSubToken")
+    }
+}
+
+fun paddingCheck(binary : String, capacity : Int) : String {
+    var returnStr = (if (binary.length > capacity) {
+        // assume "Modified Immediate Constants"
+        binary.substring(binary.length - capacity)
+    } else {
+        // pad with zeros
+        val shortBy = capacity - binary.length
+        "0".repeat(shortBy) + binary
+    })
+    return returnStr
 }
