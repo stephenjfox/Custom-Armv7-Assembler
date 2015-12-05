@@ -1,6 +1,6 @@
 
 import assembler.Lexer
-import assembler.parseTokensToFile
+import assembler.parser.parseTokensToFile
 import model.GlobalConfig
 import java.io.File
 

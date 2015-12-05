@@ -1,9 +1,16 @@
-package assembler
+package assembler.parser
 
+import assembler.AddOperationToken
+import assembler.BranchCommand
+import assembler.LoadCommand
+import assembler.MoveCommand
+import assembler.OrOperationToken
+import assembler.StoreOperationToken
+import assembler.SubtractOperationToken
+import assembler.TokenStream
+import assembler.spliceLines
 import com.fox.general.LongExtension
 import com.fox.io.log.ConsoleLogger
-import model.ReversibleIterator
-import model.size
 import model.splitEvery
 import model.writeToFile
 import java.io.File
@@ -61,45 +68,15 @@ private fun parseTokenLine(tokenStream : TokenStream) : String {
     val token = tokenIterator.next()
     var ret = when (token) {
         is LoadCommand -> loadParseLogic(token, tokenIterator)
+        // TODO: this StoreOperationToken needs doing
+        is StoreOperationToken -> storeParseLogic(token, tokenIterator)
         is AddOperationToken -> "" // TODO: this AddOperationToken needs doing
+        is SubtractOperationToken -> "" // TODO: this SubtractOperationToken needs doing
         is OrOperationToken -> "" // TODO: this OrOperationToken needs doing
-        is StoreOperationToken -> "" // TODO: this StoreOperationToken needs doing
         is MoveCommand -> "" // TODO: this MoveCommand needs doing
         is BranchCommand -> "" // TODO: this BranchCommand needs doing
-        is SubtractOperationToken -> "" // TODO: this SubtractOperationToken needs doing
         else -> "" // shouldn't be able to make it here. Should I throw an error?
     }
 
     return ret
-}
-
-// returns the binary string of the operation encoding
-fun loadParseLogic(loadToken: LoadCommand, iterator: ReversibleIterator<Token>) : String {
-    val builder = StringBuilder(32)
-
-    var PUWTriple = Triple('1', '1', '0') // Bits P, U, and W ALL equal '0'
-
-    val iteratorSize = iterator.size()
-    ConsoleLogger.debug("Iterator.size = $iteratorSize")
-    when (iteratorSize) {
-        3 -> {
-            // treat like a 4-token instruction, with '0' for an immediate value
-            val registerDest = iterator.next() as RegisterToken
-            val registerSource = iterator.next() as RegisterToken
-            val immOpCode = "010" + PUWTriple.first + PUWTriple.second + '0' + PUWTriple.third + '1'
-            builder.append(Integer.toBinaryString(loadToken.conditionInt))
-            builder.append(immOpCode)
-            builder.append(registerSource.nibble)
-            builder.append(registerDest.nibble)
-            // pad the last imm12 bits with 0s
-            builder.append("000000000000")
-        }
-    }
-    val toString = builder.toString()
-
-    val binAsInt = java.lang.Long.parseLong(toString, 2)
-    val hexString = java.lang.Long.toHexString(binAsInt)
-    ConsoleLogger.debug("Built binary $toString. Hex: $hexString")
-
-    return toString
 }
