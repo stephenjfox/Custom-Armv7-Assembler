@@ -1,6 +1,9 @@
 package assembler.parser
 
 import assembler.BaseAssemblerTest
+import assembler.ImmediateToken
+import assembler.TokenType
+import assembler.Tokens
 import model.splitEvery
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -38,4 +41,12 @@ class LogicTest : BaseAssemblerTest() {
         assertEquals("111111100010", twelveBits, "These trailing bits should be equal")
     }
 
+    @test fun modifiedConstantCheck_blinkBitTest() {
+        val immToken = Tokens.create(TokenType.Immediate, "0x200000") as ImmediateToken
+        val hexAsInt = Integer.parseInt("200000", 16)
+
+        assertEquals(expected = hexAsInt, actual = immToken.value, message = "These should be equivalent")
+
+
+    }
 }

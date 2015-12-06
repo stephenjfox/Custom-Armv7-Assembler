@@ -116,7 +116,7 @@ fun addSubOperationParse(addSubToken : DataOperationCommandToken, iterator : Rev
 
         val builder = StringBuilder()
         val iteratorSize = iterator.size()
-        var registerBit = '0' // todo: use this thing later
+        var registerBit = '0' // TODO: change this bit later - when using registers for values
         val idPair = (if (addSubToken is AddOperationToken) "10" else "01")
         val sBit = (if (addSubToken.setSBit) '1' else '0')
         val registerDest = iterator.next() as RegisterToken
@@ -153,6 +153,48 @@ fun addSubOperationParse(addSubToken : DataOperationCommandToken, iterator : Rev
     }
 }
 
+fun orOperationParse(orToken : OrOperationToken, iterator : ReversibleIterator<Token>) : String {
+    // things go here
+    val builder = StringBuilder(32)
+
+    val condition = Integer.toBinaryString(orToken.conditionInt)
+    val registerDest = iterator.next() as RegisterToken
+    val registerSource = iterator.next() as RegisterToken
+    val sBit = (if (orToken.setSBit) '1' else '0')
+    val staticBits = "0011100$sBit"
+
+    when (iterator.size()) {
+        4 -> {
+            // ORR{S}<c> <Rd>, <Rn>, #<const>
+            val immToken = iterator.next() as ImmediateToken
+            // now to deal with numbers that are too big
+            val fixedTokenVal = modifiedConstantCheck(immToken)
+
+            builder.append(condition)
+                    .append(staticBits)
+                    .append(registerSource.nibble)
+                    .append(registerDest.nibble)
+                    .append(fixedTokenVal)
+        }
+        5 -> {
+            // ORR{S}<c> <Rd>, <Rn>, <Rm>{, <shift>}
+        }
+        6 -> {
+            // ORR{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
+        }
+    }
+
+    val toString = builder.toString()
+
+    if (GlobalConfig.getBoolean("debug")) {
+        val binAsInt = java.lang.Long.parseLong(toString, 2)
+        val hexString = java.lang.Long.toHexString(binAsInt)
+        ConsoleLogger.debug("Built binary $toString. Hex: $hexString")
+    }
+
+    return toString
+}
+
 fun paddingCheck(binary : String, capacity : Int) : String {
     var returnStr = (if (binary.length > capacity) {
         // assume "Modified Immediate Constants"
@@ -163,6 +205,14 @@ fun paddingCheck(binary : String, capacity : Int) : String {
         "0".repeat(shortBy) + binary
     })
     return returnStr
+}
+
+fun modifiedConstantCheck(immToken : ImmediateToken) : String {
+    // make a 8 bit value turn into a 32 bit value, with 4 bits for rotation
+    isTrue(immToken.value > 0) // if the int flipped, we've got another problem
+    // TODO: deal with immToken binary longer than bitCapacity
+//    Integer.rotateRight()
+    throw UnsupportedOperationException("not implemented")
 }
 
 fun splitImmediateString(binary : String, vararg chunkSizes : Int) : List<String> {
