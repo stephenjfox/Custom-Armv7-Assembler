@@ -5,7 +5,10 @@ import com.fox.general.PredicateTests.isTrue
 import com.fox.io.log.ConsoleLogger
 import model.GlobalConfig
 import model.ReversibleIterator
+import model.not
+import model.rotateLeft
 import model.size
+import model.toBinaryString
 import java.util.*
 
 /**
@@ -163,7 +166,11 @@ fun orOperationParse(orToken : OrOperationToken, iterator : ReversibleIterator<T
     val sBit = (if (orToken.setSBit) '1' else '0')
     val staticBits = "0011100$sBit"
 
-    when (iterator.size()) {
+    val iteratorSize = iterator.size()
+
+    ConsoleLogger.debug("Fixing on the iterator of size $iteratorSize")
+
+    when (iteratorSize) {
         4 -> {
             // ORR{S}<c> <Rd>, <Rn>, #<const>
             val immToken = iterator.next() as ImmediateToken
@@ -210,9 +217,39 @@ fun paddingCheck(binary : String, capacity : Int) : String {
 fun modifiedConstantCheck(immToken : ImmediateToken) : String {
     // make a 8 bit value turn into a 32 bit value, with 4 bits for rotation
     isTrue(immToken.value > 0) // if the int flipped, we've got another problem
-    // TODO: deal with immToken binary longer than bitCapacity
-//    Integer.rotateRight()
-    throw UnsupportedOperationException("not implemented")
+
+    var encoding = immToken.value
+    val values = buildRotatedEncodings(encoding)
+
+    if (values.size > 0) return values.last()
+
+    throw ArithmeticException("The value ${immToken.value} couldn't be made to fit into 12 bits")
+}
+
+fun buildRotatedEncodings(encoding : Int) : ArrayList<String> {
+    val values = ArrayList<String>()
+
+    var encodedVal = encoding
+    for (rotation in 0..31 step 2) {
+
+        val maskEncoding = encodedVal and not(0xff)
+
+        if (maskEncoding == 0 && encodedVal > 0) {
+            println("encodedVal = $encodedVal")
+
+            val rotatedBinary = (rotation / 2).toBinaryString()
+            val properRotatedBinary = paddingCheck(rotatedBinary, 4)
+            val fittedEncoding = encodedVal.toBinaryString()
+
+            values += "${properRotatedBinary}${paddingCheck(fittedEncoding, 8)}"
+        }
+
+        encodedVal = encodedVal rotateLeft 2
+    }
+
+    ConsoleLogger.debug("fun is done")
+
+    return values
 }
 
 fun splitImmediateString(binary : String, vararg chunkSizes : Int) : List<String> {

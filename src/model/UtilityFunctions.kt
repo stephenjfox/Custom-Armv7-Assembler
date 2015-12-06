@@ -70,3 +70,20 @@ fun String.splitEvery(n : Int) : Array<String> {
 fun String.Companion.empty() : String {
     return ""
 }
+
+infix fun Int.rotateRight(distance : Int) : Int {
+    return Integer.rotateRight(this, distance)
+}
+
+infix fun Int.rotateLeft(distance : Int) : Int {
+    return Integer.rotateLeft(this, distance)
+}
+
+fun Int.toBinaryString() : String {
+    return Integer.toBinaryString(this)
+}
+
+fun not (int : Int) : Int {
+    if (int == Int.MIN_VALUE) return Int.MAX_VALUE
+    return Int.MAX_VALUE xor int
+}

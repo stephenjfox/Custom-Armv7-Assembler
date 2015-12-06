@@ -4,7 +4,9 @@ import assembler.BaseAssemblerTest
 import assembler.ImmediateToken
 import assembler.TokenType
 import assembler.Tokens
+import model.not
 import model.splitEvery
+import model.toBinaryString
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Test as test
@@ -41,12 +43,20 @@ class LogicTest : BaseAssemblerTest() {
         assertEquals("111111100010", twelveBits, "These trailing bits should be equal")
     }
 
-    @test fun modifiedConstantCheck_blinkBitTest() {
+    @test fun buildRotatedEncodingsTest() {
         val immToken = Tokens.create(TokenType.Immediate, "0x200000") as ImmediateToken
         val hexAsInt = Integer.parseInt("200000", 16)
 
         assertEquals(expected = hexAsInt, actual = immToken.value, message = "These should be equivalent")
 
+        println("0xff as Int = ${Integer.parseInt("ff", 16)}")
+        println("0xff as binary = ${0xFF.toBinaryString()}")
+        val notFF = Int.MAX_VALUE xor 0xff
+        println("(Supposed) ~0xff as Int = ${notFF}")
+        println("(Supposed) ~0xff as binary = ${notFF.toBinaryString()}")
+        assertEquals(Int.MAX_VALUE - 255, notFF, "These are equal")
+        assertEquals(notFF, not(0xff), "These should be equal")
 
+        buildRotatedEncodings(0x200000).forEach { println(it) }
     }
 }

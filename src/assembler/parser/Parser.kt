@@ -21,7 +21,8 @@ fun parseTokensToFile(tokenStream : TokenStream, outputFile : File) : Path {
     val byteBuffer = ByteBuffer.allocate(Integer.BYTES * linesOfTokens.size)
 
     linesOfTokens.forEachIndexed { index, stream ->
-        println(stream)
+        ConsoleLogger.debug("Working on stream: $stream")
+
         val parseBinary = parseTokenLine(stream)
         val endianFix = fixEndian(parseBinary)
 
@@ -57,7 +58,7 @@ private fun parseTokenLine(tokenStream : TokenStream) : String {
         is SubtractOperationToken, is AddOperationToken -> {
             addSubOperationParse(token as DataOperationCommandToken, tokenIterator)
         }
-        is OrOperationToken -> "" // TODO: this OrOperationToken needs doing
+        is OrOperationToken -> orOperationParse(token, tokenIterator)
         is MoveCommand -> moveParseLogic(token, tokenIterator)
         is BranchCommand -> "" // TODO: this BranchCommand needs doing
         else -> "" // shouldn't be able to make it here. Should I throw an error?
