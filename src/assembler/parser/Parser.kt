@@ -54,12 +54,12 @@ private fun parseTokenLine(tokenStream : TokenStream) : String {
     val token = tokenIterator.next()
     var ret = when (token) {
         is LoadOperationToken,
-        is StoreOperationToken -> loadStoreParseLogic(token as CommandToken, tokenIterator)
+        is StoreOperationToken -> loadStoreOperationParse(token as CommandToken, tokenIterator)
         is SubtractOperationToken, is AddOperationToken -> {
             addSubOperationParse(token as DataOperationCommandToken, tokenIterator)
         }
         is OrOperationToken -> orOperationParse(token, tokenIterator)
-        is MoveCommand -> moveParseLogic(token, tokenIterator)
+        is MoveCommand -> moveCommandParse(token, tokenIterator)
         is BranchCommand -> "" // TODO: this BranchCommand needs doing
         else -> "" // shouldn't be able to make it here. Should I throw an error?
     }

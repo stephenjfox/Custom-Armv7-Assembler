@@ -21,7 +21,7 @@ import java.util.*
  * Created by stephen on 12/4/15.
  */
 
-fun moveParseLogic(moveToken : MoveCommand, iterator : ReversibleIterator<Token>) : String {
+fun moveCommandParse(moveToken : MoveCommand, iterator : ReversibleIterator<Token>) : String {
 
     var registerBit = '1' // is an immediate value. BIT 25
     val iteratorSize = iterator.size()
@@ -70,7 +70,7 @@ fun moveParseLogic(moveToken : MoveCommand, iterator : ReversibleIterator<Token>
  * throw [IllegalStateException] if the passed arguments manage to be neither [LoadOperationToken] nor
  * [StoreOperationToken]
  */
-fun loadStoreParseLogic(ldrStrToken : CommandToken, iterator : ReversibleIterator<Token>) : String {
+fun loadStoreOperationParse(ldrStrToken : CommandToken, iterator : ReversibleIterator<Token>) : String {
 
     isTrue(ldrStrToken is LoadOperationToken || ldrStrToken is StoreOperationToken)
 
@@ -200,6 +200,10 @@ fun orOperationParse(orToken : OrOperationToken, iterator : ReversibleIterator<T
     }
 
     return toString
+}
+
+fun branchOperationParse(branchToken : BranchCommand, iterator : ReversibleIterator<Token>) : String {
+    throw UnsupportedOperationException("We're not doing this yet")
 }
 
 fun paddingCheck(binary : String, capacity : Int) : String {
