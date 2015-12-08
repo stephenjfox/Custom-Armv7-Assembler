@@ -60,7 +60,7 @@ private fun parseTokenLine(tokenStream : TokenStream) : String {
         }
         is OrOperationToken -> orOperationParse(token, tokenIterator)
         is MoveCommand -> moveCommandParse(token, tokenIterator)
-        is BranchCommand -> "" // TODO: this BranchCommand needs doing
+        is BranchCommand -> branchOperationParse(token, tokenIterator.next())
         else -> "" // shouldn't be able to make it here. Should I throw an error?
     }
 

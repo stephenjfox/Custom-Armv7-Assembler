@@ -17,6 +17,15 @@ abstract class Token(val content : String) {
     }
 }
 
+abstract class CommandToken(content : String) : Token(content) {
+
+    abstract val conditionInt : Int
+}
+abstract class DataOperationCommandToken(content : String) : CommandToken(content) {
+
+    abstract val setSBit : Boolean
+}
+
 class NewLineToken() : Token("\n\r")
 
 class BranchCommand : CommandToken {
@@ -28,14 +37,6 @@ class BranchCommand : CommandToken {
         conditionInt = conditionCodeValue(condition)
     }
 
-}
-
-abstract class CommandToken(content : String) : Token(content) {
-    abstract val conditionInt : Int
-}
-
-abstract class DataOperationCommandToken(content : String) : CommandToken(content) {
-    abstract val setSBit : Boolean
 }
 
 class MoveCommand : DataOperationCommandToken {

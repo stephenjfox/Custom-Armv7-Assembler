@@ -156,11 +156,15 @@ fun addSubOperationParse(addSubToken : DataOperationCommandToken, iterator : Rev
     }
 }
 
+/**
+ * Taking an [OrOperationToken] and the trailing tokens, outputs the binary for a supported
+ * operation or errors out (to do)
+ */
 fun orOperationParse(orToken : OrOperationToken, iterator : ReversibleIterator<Token>) : String {
     // things go here
     val builder = StringBuilder(32)
 
-    val condition = Integer.toBinaryString(orToken.conditionInt)
+    val condition = (orToken.conditionInt).toBinaryString()
     val registerDest = iterator.next() as RegisterToken
     val registerSource = iterator.next() as RegisterToken
     val sBit = (if (orToken.setSBit) '1' else '0')
@@ -202,8 +206,28 @@ fun orOperationParse(orToken : OrOperationToken, iterator : ReversibleIterator<T
     return toString
 }
 
-fun branchOperationParse(branchToken : BranchCommand, iterator : ReversibleIterator<Token>) : String {
-    throw UnsupportedOperationException("We're not doing this yet")
+fun branchOperationParse(branchToken : BranchCommand, labelImmediateToken : Token) : String {
+    if (labelImmediateToken is ImmediateToken) {     // we'll break in the other case. FOR NOW
+        val conditionBinary = branchToken.conditionInt.toBinaryString()
+        val staticBits = "1010"
+
+        println("conditionBinary = ${conditionBinary}")
+        println("branchToken = [${branchToken}], labelImmediateToken = [${labelImmediateToken}]")
+
+        val immediateValue = labelImmediateToken.value
+        val immediateBinary = immediateValue.toBinaryString()
+
+        ConsoleLogger.debug("Immediate as binary = $immediateBinary")
+        ConsoleLogger.debug("Immediate binary lengith = ${immediateBinary.length}")
+
+        return StringBuilder(paddingCheck(conditionBinary, 4))
+                .append(staticBits)
+                .append(immediateBinary)
+                .toString()
+    }
+    else {
+        throw IllegalArgumentException("Non-immediate value was passed")
+    }
 }
 
 fun paddingCheck(binary : String, capacity : Int) : String {

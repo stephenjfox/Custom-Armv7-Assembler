@@ -10,9 +10,9 @@ ADD R5, R4, 0x2C # Setting the memory register to look at
 STR R2, R3 # Light the LED
 MOVT R6, 0x0005 # 11.25.15:19_51 saw that "0x0001" was too short
 SUBS R6, R6, 0x1 # subtract 1 from a big number in register 6
-#BNE 0xFFFFFD # Branch conditionally back -3 # to the preceding function
+BNE 0xFFFFFD # Branch conditionally back -3 # to the preceding function
 STR R2, R5 # Dim the LED
 MOVT R6, 0x0005 # 11.25.15:19_51 saw that "0x0001" was too short
 SUBS R6, R6, 0x1 # subtract 1 from a big number in register 6
-#BNE 0xFFFFFD # Branch conditionally back -3 # to the preceding function
-#B 0xFFFFF6 # Branch always -2 # works, so no change
+BNE 0xFFFFFD # Branch conditionally back -3 # to the preceding function
+B 0xFFFFF6 # Branch always -2 # works, so no change
