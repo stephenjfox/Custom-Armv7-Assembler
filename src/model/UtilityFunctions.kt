@@ -23,7 +23,6 @@ fun ByteArray.writeToFile(file : File, flushAndClose : Boolean = true) : Unit {
     }
 }
 
-
 fun <T> ReversibleIterator<T>.size() : Int {
     var resetCount = 0
     // get to the head

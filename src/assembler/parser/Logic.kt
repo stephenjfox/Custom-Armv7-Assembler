@@ -2,8 +2,7 @@ package assembler.parser
 
 import assembler.*
 import com.fox.general.PredicateTests.isTrue
-import com.fox.io.log.ConsoleLogger
-import model.GlobalConfig
+import model.Logger
 import model.ReversibleIterator
 import model.not
 import model.rotateLeft
@@ -25,14 +24,12 @@ fun moveCommandParse(moveToken : MoveCommand, iterator : ReversibleIterator<Toke
 
     var registerBit = '1' // is an immediate value. BIT 25
     val iteratorSize = iterator.size()
-    val condition = Integer.toBinaryString(moveToken.conditionInt)
+    val condition = moveToken.conditionInt.toBinaryString()
     val sBit = (if (moveToken.setSBit) '1' else '0')
 
     val builder = StringBuilder(32)
 
-    if (GlobalConfig.getBoolean("verbose")) {
-        ConsoleLogger.debug("Iterator.size = $iteratorSize")
-    }
+    Logger.v("Iterator.size = $iteratorSize")
 
     // TODO: refactor out the repeated code blocks
     when (iteratorSize) {
@@ -43,7 +40,7 @@ fun moveCommandParse(moveToken : MoveCommand, iterator : ReversibleIterator<Toke
                     if (!(moveToken.isMovT || moveToken.isMovW)) "101$sBit" // MOV(S)
                     else if (moveToken.isMovW) "0000" // MOVW
                     else "0100") /*MOVT*/)
-            val immBinString = paddingCheck(Integer.toBinaryString(immAtLeast12Token.value), 16)
+            val immBinString = paddingCheck(immAtLeast12Token.value.toBinaryString(), 16)
             val (imm4, imm12) = splitImmediateString(immBinString, 4, 12)
             // this is the order of the bits for the move command.
             builder.append(condition)
@@ -55,11 +52,8 @@ fun moveCommandParse(moveToken : MoveCommand, iterator : ReversibleIterator<Toke
     }
     val toString = builder.toString()
 
-    if (GlobalConfig.getBoolean("debug")) {
-        val binAsInt = java.lang.Long.parseLong(toString, 2)
-        val hexString = java.lang.Long.toHexString(binAsInt)
-        ConsoleLogger.debug("Built binary $toString. Hex: $hexString")
-    }
+    debugBinString(toString)
+
     return toString
 }
 
@@ -81,18 +75,17 @@ fun loadStoreOperationParse(ldrStrToken : CommandToken, iterator : ReversibleIte
     var rBit = '0' // is working with a register for the 'value' that will be operated on
     val identBit = (if (ldrStrToken is LoadOperationToken) 1 else 0)
     val bit22 = '0'
+    val condition = ldrStrToken.conditionInt.toBinaryString()
 
-    if (GlobalConfig.getBoolean("verbose")) {
-        ConsoleLogger.debug("Iterator.size = $iteratorSize")
-    }
+    Logger.v("Iterator.size = $iteratorSize")
     when (iteratorSize) {
         3 -> {
             // treat like a 4-token instruction, with '0' for an immediate value
             val registerDest = iterator.next() as RegisterToken
             val registerSource = iterator.next() as RegisterToken
-            val immOpCode = "01" + rBit + PUWTriple.first + PUWTriple.second + bit22 + PUWTriple.third + identBit
-            builder.append(Integer.toBinaryString(ldrStrToken.conditionInt))
-                    .append(immOpCode)
+            val staticBits = "01" + rBit + PUWTriple.first + PUWTriple.second + bit22 + PUWTriple.third + identBit
+            builder.append(condition)
+                    .append(staticBits)
                     .append(registerSource.nibble)
                     .append(registerDest.nibble)
             // pad the last imm12 bits with 0s
@@ -104,17 +97,12 @@ fun loadStoreOperationParse(ldrStrToken : CommandToken, iterator : ReversibleIte
     }
     val toString = builder.toString()
 
-    if (GlobalConfig.getBoolean("debug")) {
-        val binAsInt = java.lang.Long.parseLong(toString, 2)
-        val hexString = java.lang.Long.toHexString(binAsInt)
-        ConsoleLogger.debug("Built binary $toString. Hex: $hexString")
-    }
+    debugBinString(toString)
 
     return toString
 }
 
 fun addSubOperationParse(addSubToken : DataOperationCommandToken, iterator : ReversibleIterator<Token>) : String {
-    // no PUW bits this time 'round.
     if (addSubToken is AddOperationToken || addSubToken is SubtractOperationToken) {
 
         val builder = StringBuilder()
@@ -124,6 +112,7 @@ fun addSubOperationParse(addSubToken : DataOperationCommandToken, iterator : Rev
         val sBit = (if (addSubToken.setSBit) '1' else '0')
         val registerDest = iterator.next() as RegisterToken
         val registerSource = iterator.next() as RegisterToken
+        val condition = addSubToken.conditionInt.toBinaryString()
 
         when (iteratorSize) {
             4 -> {
@@ -131,12 +120,12 @@ fun addSubOperationParse(addSubToken : DataOperationCommandToken, iterator : Rev
                 val imm12Token = iterator.next() as ImmediateToken
                 // We're doing the immediate ADD/SUB
                 val staticBits = "00" + registerBit + '0' + idPair + '0' + sBit
-                builder.append(Integer.toBinaryString(addSubToken.conditionInt))
+                builder.append(condition)
                         .append(staticBits)
                         .append(registerSource.nibble)
                         .append(registerDest.nibble)
 
-                val immBinary = Integer.toBinaryString(imm12Token.value)
+                val immBinary = imm12Token.value.toBinaryString()
 
                 builder.append(paddingCheck(immBinary, 12))
             }
@@ -144,11 +133,7 @@ fun addSubOperationParse(addSubToken : DataOperationCommandToken, iterator : Rev
 
         val toString = builder.toString()
 
-        if (GlobalConfig.getBoolean("debug")) {
-            val binAsInt = java.lang.Long.parseLong(toString, 2)
-            val hexString = java.lang.Long.toHexString(binAsInt)
-            ConsoleLogger.debug("Built binary $toString. Hex: $hexString")
-        }
+        debugBinString(toString)
 
         return toString
     } else {
@@ -172,7 +157,7 @@ fun orOperationParse(orToken : OrOperationToken, iterator : ReversibleIterator<T
 
     val iteratorSize = iterator.size()
 
-    ConsoleLogger.debug("Fixing on the iterator of size $iteratorSize")
+    Logger.d("Fixing on the iterator of size $iteratorSize")
 
     when (iteratorSize) {
         4 -> {
@@ -197,30 +182,26 @@ fun orOperationParse(orToken : OrOperationToken, iterator : ReversibleIterator<T
 
     val toString = builder.toString()
 
-    if (GlobalConfig.getBoolean("debug")) {
-        val binAsInt = java.lang.Long.parseLong(toString, 2)
-        val hexString = java.lang.Long.toHexString(binAsInt)
-        ConsoleLogger.debug("Built binary $toString. Hex: $hexString")
-    }
+    debugBinString(toString)
 
     return toString
 }
 
 fun branchOperationParse(branchToken : BranchCommand, labelImmediateToken : Token) : String {
-    if (labelImmediateToken is ImmediateToken) {     // we'll break in the other case. FOR NOW
-        val conditionBinary = branchToken.conditionInt.toBinaryString()
-        val staticBits = "1010"
+    val builder = StringBuilder()
+    val conditionBinary = branchToken.conditionInt.toBinaryString()
+    val condition = paddingCheck(conditionBinary, 4)
+    val staticBits = "1010"
 
-        println("conditionBinary = ${conditionBinary}")
-        println("branchToken = [${branchToken}], labelImmediateToken = [${labelImmediateToken}]")
+    if (labelImmediateToken is ImmediateToken) {     // we'll break in the other case. FOR NOW
 
         val immediateValue = labelImmediateToken.value
         val immediateBinary = immediateValue.toBinaryString()
 
-        ConsoleLogger.debug("Immediate as binary = $immediateBinary")
-        ConsoleLogger.debug("Immediate binary lengith = ${immediateBinary.length}")
+        Logger.d("Immediate as binary = $immediateBinary")
+        Logger.d("Immediate binary length = ${immediateBinary.length}")
 
-        return StringBuilder(paddingCheck(conditionBinary, 4))
+        return builder.append(condition)
                 .append(staticBits)
                 .append(immediateBinary)
                 .toString()
@@ -242,6 +223,16 @@ fun paddingCheck(binary : String, capacity : Int) : String {
     return returnStr
 }
 
+private fun debugBinString(binaryString : String) {
+    val binAsInt = java.lang.Long.parseLong(binaryString, 2)
+    val hexString = java.lang.Long.toHexString(binAsInt)
+    Logger.d("Built binary $binAsInt, Hex: $hexString")
+}
+
+/**
+ * Logic for building appropriate modified constants, for situations such as: ORR R3 R3 0x20000
+ * Eventually, this will support the LabelTokens (that I've yet to make).
+ */
 fun modifiedConstantCheck(immToken : ImmediateToken) : String {
     // make a 8 bit value turn into a 32 bit value, with 4 bits for rotation
     isTrue(immToken.value > 0) // if the int flipped, we've got another problem
@@ -275,7 +266,7 @@ fun buildRotatedEncodings(encoding : Int) : ArrayList<String> {
         encodedVal = encodedVal rotateLeft 2
     }
 
-    ConsoleLogger.debug("fun is done")
+    Logger.d("fun is done")
 
     return values
 }

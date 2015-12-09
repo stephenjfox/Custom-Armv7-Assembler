@@ -2,8 +2,7 @@ package assembler.parser
 
 import assembler.*
 import com.fox.general.LongExtension
-import com.fox.io.log.ConsoleLogger
-import model.GlobalConfig
+import model.Logger
 import model.splitEvery
 import model.writeToFile
 import java.io.File
@@ -21,19 +20,17 @@ fun parseTokensToFile(tokenStream : TokenStream, outputFile : File) : Path {
     val byteBuffer = ByteBuffer.allocate(Integer.BYTES * linesOfTokens.size)
 
     linesOfTokens.forEachIndexed { index, stream ->
-        ConsoleLogger.debug("Working on stream: $stream")
+        Logger.d("Working on stream: $stream")
 
         val parseBinary = parseTokenLine(stream)
         val endianFix = fixEndian(parseBinary)
 
-        if (GlobalConfig.getBoolean("verbose")) {
-            ConsoleLogger.debug("endianFix = $endianFix")
-        }
+        Logger.d("endianFix = $endianFix")
 
         val tryParse = LongExtension.tryParse(endianFix, 2)
 
         if (tryParse.first) {
-            ConsoleLogger.debug("Long that I'm 'putting' = ${tryParse.second}")
+            Logger.d("Long that I'm 'putting' = ${tryParse.second}")
             byteBuffer.putInt(tryParse.second.toInt())
 
             val bytes = byteBuffer.array()
@@ -61,7 +58,7 @@ private fun parseTokenLine(tokenStream : TokenStream) : String {
         is OrOperationToken -> orOperationParse(token, tokenIterator)
         is MoveCommand -> moveCommandParse(token, tokenIterator)
         is BranchCommand -> branchOperationParse(token, tokenIterator.next())
-        else -> "" // shouldn't be able to make it here. Should I throw an error?
+        else -> throw IllegalStateException("Token argument was invalid $token")
     }
 
     return ret
@@ -73,11 +70,11 @@ private fun parseTokenLine(tokenStream : TokenStream) : String {
 private fun fixEndian(parseBinary : String) : String {
     val reversedArray = parseBinary.splitEvery(8)
             .reversedArray()
-    if (GlobalConfig.getBoolean("verbose")) {
-        ConsoleLogger.debug("Reversed binary as Array = ${reversedArray.joinToString()}")
-        ConsoleLogger.debug("The above as hex " +
-                "${reversedArray.map { Integer.toHexString(Integer.parseInt(it, 2)) }}")
-    }
+
+    Logger.v("Reversed binary as Array = ${reversedArray.joinToString()}")
+    Logger.v("The above as hex " +
+            "${reversedArray.map { Integer.toHexString(Integer.parseInt(it, 2)) }}")
+
     val endianFix = reversedArray
             .reduce({ acc, curr -> acc.plus(curr) })
     return endianFix

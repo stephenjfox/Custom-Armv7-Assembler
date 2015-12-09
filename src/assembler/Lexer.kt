@@ -1,10 +1,9 @@
 package assembler
 
-import com.fox.io.log.ConsoleColor
-import com.fox.io.log.ConsoleLogger
-import com.fox.io.log.ConsoleLogger.debug
-import com.fox.io.log.ConsoleLogger.writeLine
 import model.GlobalConfig
+import model.Logger
+import model.Logger.d
+import model.Logger.v
 import model.asString
 import model.splitOnSpace
 import java.io.File
@@ -50,21 +49,29 @@ class Lexer(val sourceFile : File) {
         for ((index, sourceLine) in lines.withIndex()) {
             val lineNumber = index + 1
 
+            val spaceSeparatedInputs = sourceLine.splitOnSpace(',')
+
+
             if (LABEL_DEF_REGEX.containsMatchIn(sourceLine)) {
-                val labelName = sourceLine[0, sourceLine.indexOf(REGEX_WRAP_CHAR)].asString()
-                labelMap.putUsageSite(labelName, lineNumber)
+                Logger.d("Line ($sourceLine) contains regex match")
+                val labelName = sourceLine.subSequence(
+                        sourceLine.indexOf(REGEX_WRAP_CHAR) + 1,
+                        sourceLine.lastIndexOf(REGEX_WRAP_CHAR)).asString()
+
+                if (spaceSeparatedInputs[0].matches(LABEL_DEF_REGEX)) {
+                    labelMap.putDefinitionSite(labelName, lineNumber)
+                }
+                else labelMap.putUsageSite(labelName, lineNumber)
             }
         }
+
+        Logger.v(labelMap)
 
         // scratch: pass #2 is to fill the needs
         for ((currentIndex, line) in lines.withIndex()) {
             val spaceSeparatedInputs = line.splitOnSpace(',')
-            if (debugTyping) {
-                debug("split = $spaceSeparatedInputs")
-            }
-            if (verboseTyping) {
-                writeLine("split.size = ${spaceSeparatedInputs.size}", ConsoleColor.BLACK)
-            }
+            d("split = $spaceSeparatedInputs")
+            v("split.size = ${spaceSeparatedInputs.size}")
 
             tokenizeLine(spaceSeparatedInputs, currentIndex + 1)
             if ( currentIndex < lines.lastIndex) {
@@ -80,9 +87,7 @@ class Lexer(val sourceFile : File) {
     }
 
     private fun tokenizeLine(listOfStrings : List<String>, failureLine : Int) {
-        if (verboseTyping) {
-            writeLine("Going to produce tokens for: $listOfStrings", ConsoleColor.BLACK)
-        }
+        v("Going to produce tokens for: $listOfStrings")
 
         val firstString = listOfStrings[0]
         when (listOfStrings.size) {
@@ -151,8 +156,8 @@ class Lexer(val sourceFile : File) {
                 else if (firstString.startsWith("OR")) {
                     orFunctionTokenYield(listOfStrings)
                 } else {
-                    ConsoleLogger.error("Failed to tokenize arguments: ${listOfStrings}")
-                    error("Probable syntax error on line: $failureLine")
+                    Logger.e("Failed to tokenize arguments: $listOfStrings")
+                    throw IllegalArgumentException("Probable syntax error on line: $failureLine")
                 }
             }
             6 -> {
@@ -175,10 +180,8 @@ class Lexer(val sourceFile : File) {
                 }
             }
             else -> {
-                if (debugTyping) {
-                    debug("listOfStrings = [${listOfStrings}], failureLine = [${failureLine}]")
-                    error("Bad arguments were passed at line #$failureLine")
-                }
+                d("listOfStrings = [$listOfStrings], failureLine = [$failureLine]")
+                throw IllegalArgumentException("Bad arguments were passed at line #$failureLine")
             }
         }
     }
@@ -198,12 +201,12 @@ class Lexer(val sourceFile : File) {
         val principalToken = Tokens.create(getStrOrLdr(stringLineInputs[0]), stringLineInputs[0])
         val register1Token = Tokens.create(TokenType.Register, stringLineInputs[1])
         val register2Token = Tokens.create(TokenType.Register, stringLineInputs[2])
-        if (verboseTyping) {
-            writeLine("stringLineInputs = $stringLineInputs yielded tokens:" +
-                    "\tload/strToken = {$principalToken}" +
-                    "\tR1Token = {$register1Token}" +
-                    "\tR2Token = {$register2Token}")
-        }
+
+        v("stringLineInputs = $stringLineInputs yielded tokens:" +
+                "\tload/strToken = {$principalToken}" +
+                "\tR1Token = {$register1Token}" +
+                "\tR2Token = {$register2Token}")
+
         TokenStream.yieldSequential(principalToken, register1Token, register2Token)
 
         if (stringLineInputs.size > 3) {
@@ -214,7 +217,7 @@ class Lexer(val sourceFile : File) {
             if (stringLineInputs.size == 4) {
                 TokenStream.yield(fourthToken)
             } else if (stringLineInputs.size == 5) {
-                // FIXME: can be a registor or shift. Please fix this soon, because...
+                // FIXME: can be a register or shift. Please fix this soon, because...
                 // commands like STREXD (write a 64-bit value to TWO registers) are going to be a thing
                 val shiftToken = Tokens.create(TokenType.Shift, stringLineInputs[4])
                 TokenStream.yieldSequential(fourthToken, shiftToken)
@@ -243,21 +246,19 @@ class Lexer(val sourceFile : File) {
                 // token6 is a register
                 // for more see "Arm Architecture Reference Manual ARMv7-A (or '-R')":
                 // A8.8.224 SUB (register-shifted register)
-                ConsoleLogger.warning("6 arguments passed to abbSubtractTokenYield")
+                Logger.w("6 arguments passed to abbSubtractTokenYield")
             }
             else {
                 // we should NEVER be able to get here, because I don't allow codes that long
                 // but to be safe
-                ConsoleLogger.error("You did the impossible and passed 7 arguments into this func")
-                error("NOT ALLOWED: 7 operands = ${operands}")
+                Logger.e("You did the impossible and passed 7 arguments into this func")
+                throw IllegalStateException("NOT ALLOWED: 7 operands = $operands")
             }
 
         }
     }
 
     private fun orFunctionTokenYield(orChunks : List<String>) {
-        // TODO: there will be additional logic to catch the values that need to be ROTATED
-        // ex: ORR R3 R3 0x20000 # this is real code
         val token = Tokens.create(TokenType.Or, orChunks[0])
         val r1 = Tokens.create(TokenType.Register, orChunks[1])
         val r2 = Tokens.create(TokenType.Register, orChunks[2])
@@ -299,11 +300,11 @@ class Lexer(val sourceFile : File) {
             (if (ambiguousAssembly[0] == 'R') TokenType.Register else TokenType.Immediate)
 
     private fun getSourceLinesConcat(delimiter : String = "|") : String {
-        if (verboseTyping) writeLine("Reading files")
+        v("Reading files")
         val allLines : List<String> = Files.readAllLines(sourceFile.toPath())
         if (debugTyping) {
-            writeLine("The following are the lines of the text file...", ConsoleColor.BLACK)
-            allLines.forEach { debug(it) }
+            v("The following are the lines of the text file...")
+            allLines.forEach { d(it) }
         }
 
         val reduceRight : String = allLines.map {
@@ -318,9 +319,7 @@ class Lexer(val sourceFile : File) {
             it.substring(startIndex = 0, endIndex = indOfComment)
         }.filter { it.length > 0 }.reduce { str, s -> str.plus(delimiter).plus(s) }
 
-        if (verboseTyping) {
-            writeLine("Concat: $reduceRight", ConsoleColor.BLACK)
-        }
+        v("Concat: $reduceRight")
 
         return reduceRight
     }

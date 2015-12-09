@@ -1,6 +1,7 @@
 package assembler
 
 import model.GlobalConfig
+import model.Logger
 import java.lang.Integer.parseInt
 import java.lang.Integer.toBinaryString
 
@@ -21,6 +22,7 @@ abstract class CommandToken(content : String) : Token(content) {
 
     abstract val conditionInt : Int
 }
+
 abstract class DataOperationCommandToken(content : String) : CommandToken(content) {
 
     abstract val setSBit : Boolean
@@ -30,7 +32,6 @@ class NewLineToken() : Token("\n\r")
 
 class BranchCommand : CommandToken {
     override val conditionInt : Int
-        get() = field
 
     constructor(content : String) : super(content) {
         val condition = content.substring(1)
@@ -66,12 +67,9 @@ class MoveCommand : DataOperationCommandToken {
                 subStrInt = 4
             }
             else -> {
-                if (GlobalConfig.getBoolean("verbose")) {
-                    println("Content passed into MOVEToken constructor was invalid")
-                }
-                if (GlobalConfig.getBoolean("debug")) {
-                    println("content = [$content]")
-                }
+                Logger.e("Content passed into MOVEToken constructor was invalid")
+                Logger.v("content = [$content]")
+
                 throw IllegalArgumentException("Content argument was illegal length")
             }
         }
@@ -101,7 +99,8 @@ class RegisterToken : Token {
     val nibble : String
         get() {
             var binaryString = toBinaryString(registerNumber)
-            while (binaryString.length < 4) { // pad with zeroes
+            while (binaryString.length < 4) {
+                // pad with zeroes
                 binaryString = "0$binaryString"
             }
             return binaryString
@@ -127,7 +126,6 @@ class ShiftToken : Token {
 }
 
 class ImmediateToken(content : String) : Token(content) {
-
     val value : Int = parseImmediateValue(content)
 
     override fun toString() : String {
@@ -175,7 +173,6 @@ class OrOperationToken : DataOperationCommandToken {
 
 class StoreOperationToken(baseContent : String) : CommandToken(baseContent) {
     override val conditionInt : Int
-        get() = field
 
     init {
         conditionInt = conditionCodeValue(baseContent.substring(3))
@@ -191,24 +188,14 @@ class TypeToken(baseContent : String, val bitLimit : Int) : Token(baseContent) {
     }
 }
 
+class LabelDefinitionToken(baseContent : String, val lineNumber : Int) : Token(baseContent) {
+    // things
+}
+
+class LabelUsageToken(baseContent : String, val lineNumber : Int) : Token(baseContent)
+
 object Tokens {
 
-    /*fun create(tokenType : String, baseContent : String) : Token {
-        return when (tokenType) {
-            "register" -> RegisterToken(baseContent)
-            "immediate" -> ImmediateToken(baseContent)
-            "move" -> MoveCommand(baseContent)
-            "branch" -> BranchCommand(baseContent)
-            else -> object : Token("Dummy") {
-                // not much else needs to go here.
-                init {
-                    if (GlobalConfig.getBoolean("verbose")) {
-                        println("Dummy made. this.javaClass = ${this.javaClass}")
-                    }
-                }
-            }
-        }
-    }*/
     /**
      * Thinking back, these COULD be super types, with more specific types as
      * children. But then that defeats what I was trying to do with a flat
@@ -216,9 +203,7 @@ object Tokens {
      */
     fun create(tokenType : TokenType, baseContent : String) : Token {
 
-        if (GlobalConfig.getBoolean("verbose")) {
-            println("Tokens.create() invoked with tokenType = $tokenType, baseContent = $baseContent")
-        }
+        Logger.v("Tokens.create() invoked with tokenType = $tokenType, baseContent = $baseContent")
 
         return when (tokenType) {
             TokenType.Register -> RegisterToken(baseContent)
@@ -234,11 +219,8 @@ object Tokens {
             TokenType.Store -> StoreOperationToken(baseContent)
             TokenType.Type2Bit -> TypeToken(baseContent, 2) // should only have two bits
             else -> object : Token("Dummy") {
-                // not much else needs to go here.
                 init {
-                    if (GlobalConfig.getBoolean("verbose")) {
-                        println("Dummy made. this.javaClass = ${this.javaClass}")
-                    }
+                    Logger.v("Dummy made. this.javaClass = ${this.javaClass}")
                 }
             }
         }

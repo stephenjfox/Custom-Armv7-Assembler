@@ -1,10 +1,8 @@
 package assembler
 
 import com.fox.general.IntegerExtension
-import com.fox.io.log.ConsoleColor
-import com.fox.io.log.ConsoleLogger.debug
-import com.fox.io.log.ConsoleLogger.writeLine
-import model.GlobalConfig
+import model.Logger.d
+import model.Logger.v
 import java.util.*
 
 /**
@@ -31,20 +29,14 @@ fun conditionCodeValue(conditionName : String) : Int {
         "LO" -> conditionCodeValue("CC")
         else -> -1
     }
-    if (GlobalConfig.getBoolean("debug")) {
-        debug("Ret = $ret, with conditionName = [$conditionName]")
-    }
+    d("Ret = $ret, with conditionName = [$conditionName]")
     return ret
 }
 
 fun parseImmediateValue(string : String) : Int {
 
-    if (GlobalConfig.getBoolean("verbose")) {
-        writeLine("TokenUtils -> parseImmediateValue", ConsoleColor.BLACK)
-    }
-    if (GlobalConfig.getBoolean("debug")) {
-        debug("string = [${string}]")
-    }
+    v("TokenUtils -> parseImmediateValue")
+    d("immediate string parse = [$string]")
 
     val tryParse = IntegerExtension.tryParse(string)
 
@@ -75,7 +67,6 @@ fun optionSCommandParse(optionalCommandString : String) : Pair<Boolean, Int> {
         }
         6 -> {
             settingS = optionalCommandString[3] == 'S'
-
             finalConditionInt = conditionCodeValue(optionalCommandString.substring(4))
         }
         else ->
