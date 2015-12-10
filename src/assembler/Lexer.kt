@@ -21,7 +21,7 @@ class Lexer(val sourceFile : File) {
     private val debugTyping = GlobalConfig.getBoolean("debug") || verboseTyping
 
     private val REGEX_WRAP_CHAR = '%'
-    private val LABEL_DEF_REGEX : Regex = "$REGEX_WRAP_CHAR\\w+$REGEX_WRAP_CHAR".toRegex()
+    private val LABEL_REGEX: Regex = "$REGEX_WRAP_CHAR\\w+$REGEX_WRAP_CHAR".toRegex()
     private val COMMENT_CHAR = '#'
     private val labelMap = LabelUsageMap()
 
@@ -29,7 +29,7 @@ class Lexer(val sourceFile : File) {
         val choiceDelimiter = "|"
         if (debugTyping) {
             println("REGEX_WRAP_CHAR = ${REGEX_WRAP_CHAR}")
-            println("LABEL_DEF_REGEX = ${LABEL_DEF_REGEX.pattern}")
+            println("LABEL_DEF_REGEX = ${LABEL_REGEX.pattern}")
         }
         /*
         * 1) Read a file
@@ -52,13 +52,11 @@ class Lexer(val sourceFile : File) {
             val spaceSeparatedInputs = sourceLine.splitOnSpace(',')
 
 
-            if (LABEL_DEF_REGEX.containsMatchIn(sourceLine)) {
+            if (LABEL_REGEX.containsMatchIn(sourceLine)) {
                 Logger.d("Line ($sourceLine) contains regex match")
-                val labelName = sourceLine.subSequence(
-                        sourceLine.indexOf(REGEX_WRAP_CHAR) + 1,
-                        sourceLine.lastIndexOf(REGEX_WRAP_CHAR)).asString()
+                val labelName = stripSpecialRegex(sourceLine)
 
-                if (spaceSeparatedInputs[0].matches(LABEL_DEF_REGEX)) {
+                if (spaceSeparatedInputs[0].matches(LABEL_REGEX)) {
                     labelMap.putDefinitionSite(labelName, lineNumber)
                 }
                 else labelMap.putUsageSite(labelName, lineNumber)
@@ -86,11 +84,20 @@ class Lexer(val sourceFile : File) {
         return TokenStream.getTokenStream()
     }
 
-    private fun tokenizeLine(listOfStrings : List<String>, failureLine : Int) {
+    private fun tokenizeLine(listOfStrings: List<String>, currentInstructionLine: Int) {
         v("Going to produce tokens for: $listOfStrings")
+        val lineStrings: List<String>
+        val firstString: String
 
-        val firstString = listOfStrings[0]
-        when (listOfStrings.size) {
+        if (listOfStrings[0].matches(LABEL_REGEX)) {
+            lineStrings = listOfStrings.subList(1, listOfStrings.size)
+        } else {
+            lineStrings = listOfStrings
+        }
+
+        firstString = lineStrings[0]
+
+        when (lineStrings.size) {
             2 -> {
                 // there's a limit to the options
                 /*
@@ -99,7 +106,16 @@ class Lexer(val sourceFile : File) {
                  * branch: B<c> <imm24>
                  */
                 val branchToken = Tokens.create(TokenType.Branch, firstString)
-                val imm24Token = Tokens.create(TokenType.Immediate, listOfStrings[1])
+                val imm24Token = (if (lineStrings[1].matches(LABEL_REGEX)){
+
+                    val name = stripSpecialRegex(lineStrings[1])
+                    val labelUsageRecord = labelMap[name]!!
+                    val hexString = Integer.toHexString(labelUsageRecord.definitionLine - currentInstructionLine - 2)
+                    Tokens.create(TokenType.Immediate, "0x${hexString.subSequence(2, hexString.length)}")
+
+                } else {
+                    Tokens.create(TokenType.Immediate, lineStrings[1])
+                })
                 TokenStream.yieldSequential(branchToken, imm24Token)
             }
             3 -> {
@@ -111,21 +127,21 @@ class Lexer(val sourceFile : File) {
                      *       MOVT<c> <Rn> <imm16|Rm>
                      *       MOV(S)<c> <Rd>
                      */
-                    moveTokenYield(listOfStrings)
+                    moveTokenYield(lineStrings)
                 } else if (firstString.startsWith("LDR")) {
                     /*
                      * load: LDR<c> <Rt> <Rn>
                      */
-                    loadStoreRegisterTokenYield(listOfStrings)
+                    loadStoreRegisterTokenYield(lineStrings)
                 } else if (firstString.startsWith("STR")) {
                     /*
                      * store: STR<c> <Rt> <Rn>
                      */
-                    loadStoreRegisterTokenYield(listOfStrings)
+                    loadStoreRegisterTokenYield(lineStrings)
                 } else {
                     // TODO: let ADD/SUB use 3, 4, 5 arguments
-                    println("Syntax error on line $failureLine. Arithmetic operation must have at least three arguments")
-                    error("code: $listOfStrings")
+                    println("Syntax error on line $currentInstructionLine. Arithmetic operation must have at least three arguments")
+                    error("code: $lineStrings")
                 }
             }
             4, 5 -> {
@@ -139,7 +155,7 @@ class Lexer(val sourceFile : File) {
                  *               <Rn> (<Rt>) <imm12> // see the above
                  */
                 if (firstString.startsWith("STR") || firstString.startsWith("LDR")) {
-                    loadStoreRegisterTokenYield(listOfStrings)
+                    loadStoreRegisterTokenYield(lineStrings)
                 }
                 /*
                  * add: ADD<c> <Rd> <Rn> <imm12>
@@ -147,17 +163,17 @@ class Lexer(val sourceFile : File) {
                  * subtract: SUB<c> <Rd> <Rn> <imm12>
                  */
                 else if (firstString.startsWith("ADD") || firstString.startsWith("SUB")) {
-                    addSubtractTokenYield(listOfStrings)
+                    addSubtractTokenYield(lineStrings)
                 }
                 /*
                  * or: ORR(S)<c> <Rd> <Rn> <imm12>
                  *
                  */
                 else if (firstString.startsWith("OR")) {
-                    orFunctionTokenYield(listOfStrings)
+                    orFunctionTokenYield(lineStrings)
                 } else {
-                    Logger.e("Failed to tokenize arguments: $listOfStrings")
-                    throw IllegalArgumentException("Probable syntax error on line: $failureLine")
+                    Logger.e("Failed to tokenize arguments: $lineStrings")
+                    throw IllegalArgumentException("Probable syntax error on line: $currentInstructionLine")
                 }
             }
             6 -> {
@@ -167,21 +183,21 @@ class Lexer(val sourceFile : File) {
                  * subtract: SUB{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
                  */
                 if (firstString.startsWith("ADD") || firstString.startsWith("SUB")) {
-                    addSubtractTokenYield(listOfStrings)
+                    addSubtractTokenYield(lineStrings)
                 }
                 /*
                  * or: ORR{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
                  *
                  */
                 else if (firstString.startsWith("ORR")) {
-                    orFunctionTokenYield(listOfStrings)
+                    orFunctionTokenYield(lineStrings)
                 } else {
-                    error("Probable syntax error on line: $failureLine\nThrown from Lexer.kt:150ish")
+                    error("Probable syntax error on line: $currentInstructionLine\nThrown from Lexer.kt:150ish")
                 }
             }
             else -> {
-                d("listOfStrings = [$listOfStrings], failureLine = [$failureLine]")
-                throw IllegalArgumentException("Bad arguments were passed at line #$failureLine")
+                d("listOfStrings = [$lineStrings], failureLine = [$currentInstructionLine]")
+                throw IllegalArgumentException("Bad arguments were passed at line #$currentInstructionLine")
             }
         }
     }
@@ -281,8 +297,8 @@ class Lexer(val sourceFile : File) {
         }
     }
 
-
     /*  HELPER FUNCTIONS  */
+
 
     private fun addOrSubTokenType(addOrSub : String) : TokenType {
         return (if (addOrSub[0] == 'S' && addOrSub[1] == 'U' && addOrSub[2] == 'B')
@@ -294,6 +310,12 @@ class Lexer(val sourceFile : File) {
         return if (string.startsWith("LDR")) {
             TokenType.Load
         } else TokenType.Store
+    }
+
+    private fun stripSpecialRegex(sourceString: String): String {
+        return sourceString.subSequence(
+                sourceString.indexOf(REGEX_WRAP_CHAR) + 1,
+                sourceString.lastIndexOf(REGEX_WRAP_CHAR)).asString()
     }
 
     private fun registerOrImmediate(ambiguousAssembly : String) =
@@ -316,7 +338,7 @@ class Lexer(val sourceFile : File) {
             } else {
                 poundEx - 1
             }
-            it.substring(startIndex = 0, endIndex = indOfComment)
+            it.substring(beginIndex = 0, endIndex = indOfComment)
         }.filter { it.length > 0 }.reduce { str, s -> str.plus(delimiter).plus(s) }
 
         v("Concat: $reduceRight")
