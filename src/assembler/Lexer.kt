@@ -25,10 +25,39 @@ class Lexer(val sourceFile : File) {
     private val COMMENT_CHAR = '#'
     private val labelMap = LabelUsageMap()
 
+    /* todo: check notebook for reflection on stack
+    aly showed that by using a "call" keyword and label name, she could get
+    subroutine behavior. Stack is just some register address and filling the
+    memory at that point. (I think Halladay just had problems with tracking
+    the things and the larger abstraction, because I don't see these major
+    that he keeps mentions */
+
+    // Subroutines video says:
+    /* MOV R0, R15 # to account for the instruction counter
+    *  ADD R0, R0, 4 # 4 == (-2 + 3) * 4, because the pipeline
+    *  BAL Subroutine
+    *  // R0 SHOULD point here, but I - Stephen James Fox - don't believe
+    *
+    *  Subroutine:
+    *  // Some assembly body
+    *  MOV R15, R0
+    *
+    *  30s later in the video, Halladay explains that ARM does it for us. AGAIN
+    *
+    *  BL Subroutine # store succeeding address in R14
+    *
+    *  Subroutine:
+    *  // Some assembly body
+    *  MOV R15, R14
+    *
+    *  THE STACK IS NECESSITATED BY THE NEED TO KNOW THAT YOUR REGISTERS WILL
+    *  BE SAFE
+    */
+
     fun lex() : TokenStream {
         val choiceDelimiter = "|"
         if (debugTyping) {
-            println("REGEX_WRAP_CHAR = ${REGEX_WRAP_CHAR}")
+            println("REGEX_WRAP_CHAR = $REGEX_WRAP_CHAR")
             println("LABEL_DEF_REGEX = ${LABEL_REGEX.pattern}")
         }
         /*
@@ -89,6 +118,7 @@ class Lexer(val sourceFile : File) {
         val lineStrings: List<String>
         val firstString: String
 
+        // this is a bit hackish, but it fills the need
         if (listOfStrings[0].matches(LABEL_REGEX)) {
             lineStrings = listOfStrings.subList(1, listOfStrings.size)
         } else {
@@ -105,18 +135,28 @@ class Lexer(val sourceFile : File) {
                  * save the BLK (branch with link) and BXN (?) that I can handle like the MoveCommand
                  * branch: B<c> <imm24>
                  */
-                val branchToken = Tokens.create(TokenType.Branch, firstString)
-                val imm24Token = (if (lineStrings[1].matches(LABEL_REGEX)){
+                if (firstString.startsWith("B")) {
+                    val branchToken = if (firstString.startsWith("BLK")) {
+                        Tokens.create(TokenType.BranchWithLink, firstString)
+                    } else {
+                        Tokens.create(TokenType.Branch, firstString)
+                    }
+                    val imm24Token = (if (lineStrings[1].matches(LABEL_REGEX)){
 
-                    val name = stripSpecialRegex(lineStrings[1])
-                    val labelUsageRecord = labelMap[name]!!
-                    val hexString = Integer.toHexString(labelUsageRecord.definitionLine - currentInstructionLine - 2)
-                    Tokens.create(TokenType.Immediate, "0x${hexString.subSequence(2, hexString.length)}")
+                        val name = stripSpecialRegex(lineStrings[1])
+                        val labelUsageRecord = labelMap[name]!!
+                        val hexString = Integer.toHexString(labelUsageRecord.definitionLine - currentInstructionLine - 2)
+                        Tokens.create(TokenType.Immediate, "0x${hexString.subSequence(2, hexString.length)}")
 
-                } else {
-                    Tokens.create(TokenType.Immediate, lineStrings[1])
-                })
-                TokenStream.yieldSequential(branchToken, imm24Token)
+                    } else {
+                        Tokens.create(TokenType.Immediate, lineStrings[1])
+                    })
+                    TokenStream.yieldSequential(branchToken, imm24Token)
+                }
+                else {
+                    Logger.e("Syntax $firstString a valid token")
+                    throw IllegalArgumentException("Dirty and short inputs $lineStrings")
+                }
             }
             3 -> {
                 // there are... more options
@@ -139,7 +179,6 @@ class Lexer(val sourceFile : File) {
                      */
                     loadStoreRegisterTokenYield(lineStrings)
                 } else {
-                    // TODO: let ADD/SUB use 3, 4, 5 arguments
                     println("Syntax error on line $currentInstructionLine. Arithmetic operation must have at least three arguments")
                     error("code: $lineStrings")
                 }
@@ -150,16 +189,13 @@ class Lexer(val sourceFile : File) {
                  * to write those 15 cases.
                  * scratch: for now, read the grammar. Other types will be dealt with later
                  * load: LDR<c> <Rt> <Rn> <imm12>
-                 *              <Rn> (<Rt>) <imm12> // I  don't like this
                  * store: STR<c> <Rt> <Rn> <imm12>
-                 *               <Rn> (<Rt>) <imm12> // see the above
                  */
                 if (firstString.startsWith("STR") || firstString.startsWith("LDR")) {
                     loadStoreRegisterTokenYield(lineStrings)
                 }
                 /*
                  * add: ADD<c> <Rd> <Rn> <imm12>
-                 *
                  * subtract: SUB<c> <Rd> <Rn> <imm12>
                  */
                 else if (firstString.startsWith("ADD") || firstString.startsWith("SUB")) {
@@ -167,7 +203,6 @@ class Lexer(val sourceFile : File) {
                 }
                 /*
                  * or: ORR(S)<c> <Rd> <Rn> <imm12>
-                 *
                  */
                 else if (firstString.startsWith("OR")) {
                     orFunctionTokenYield(lineStrings)
@@ -179,7 +214,6 @@ class Lexer(val sourceFile : File) {
             6 -> {
                 /*
                  * add: ADD<c> <Rd> <Rn> <imm12>
-                 *
                  * subtract: SUB{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
                  */
                 if (firstString.startsWith("ADD") || firstString.startsWith("SUB")) {
@@ -187,7 +221,6 @@ class Lexer(val sourceFile : File) {
                 }
                 /*
                  * or: ORR{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
-                 *
                  */
                 else if (firstString.startsWith("ORR")) {
                     orFunctionTokenYield(lineStrings)
@@ -238,7 +271,7 @@ class Lexer(val sourceFile : File) {
                 val shiftToken = Tokens.create(TokenType.Shift, stringLineInputs[4])
                 TokenStream.yieldSequential(fourthToken, shiftToken)
             } else {
-                error("there was an 'LDR' instruction that was too long.\nInstruction = ${stringLineInputs}")
+                error("there was an 'LDR' instruction that was too long.\nInstruction = $stringLineInputs")
             }
         }
     }

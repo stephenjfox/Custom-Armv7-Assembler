@@ -57,7 +57,8 @@ private fun parseTokenLine(tokenStream : TokenStream) : String {
         }
         is OrOperationToken -> orOperationParse(token, tokenIterator)
         is MoveCommand -> moveCommandParse(token, tokenIterator)
-        is BranchCommand -> branchOperationParse(token, tokenIterator.next())
+        is BranchCommand,
+        is BranchWithLinkCommand -> branchOperationParse(token as CommandToken, tokenIterator.next())
         else -> throw IllegalStateException("Token argument was invalid $token")
     }
 

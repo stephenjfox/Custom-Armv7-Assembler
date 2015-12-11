@@ -19,12 +19,10 @@ abstract class Token(val content : String) {
 }
 
 abstract class CommandToken(content : String) : Token(content) {
-
     abstract val conditionInt : Int
 }
 
 abstract class DataOperationCommandToken(content : String) : CommandToken(content) {
-
     abstract val setSBit : Boolean
 }
 
@@ -37,7 +35,15 @@ class BranchCommand : CommandToken {
         val condition = content.substring(1)
         conditionInt = conditionCodeValue(condition)
     }
+}
 
+class BranchWithLinkCommand(content: String) : CommandToken(content) {
+    override val conditionInt: Int
+
+    init {
+        val condition = content.substring(3)
+        conditionInt = conditionCodeValue(condition)
+    }
 }
 
 class MoveCommand : DataOperationCommandToken {
@@ -229,5 +235,5 @@ object Tokens {
 
 enum class TokenType {
     Move, Load, Store, Add, Subtract, Branch, Register, Immediate, Or, Shift, NewLine,
-    Type2Bit
+    Type2Bit, BranchWithLink
 }

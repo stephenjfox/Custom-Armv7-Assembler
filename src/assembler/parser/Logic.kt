@@ -187,11 +187,14 @@ fun orOperationParse(orToken : OrOperationToken, iterator : ReversibleIterator<T
     return toString
 }
 
-fun branchOperationParse(branchToken : BranchCommand, labelImmediateToken : Token) : String {
+fun branchOperationParse(branchToken : CommandToken, labelImmediateToken : Token) : String {
+    isTrue(branchToken is BranchCommand || branchToken is BranchWithLinkCommand)
+
     val builder = StringBuilder()
     val conditionBinary = branchToken.conditionInt.toBinaryString()
     val condition = paddingCheck(conditionBinary, 4)
-    val staticBits = "1010"
+    val linkBit = if (branchToken is BranchWithLinkCommand) '1' else '0'
+    val staticBits = "101$linkBit"
 
     if (labelImmediateToken is ImmediateToken) {     // we'll break in the other case. FOR NOW
 
@@ -207,6 +210,7 @@ fun branchOperationParse(branchToken : BranchCommand, labelImmediateToken : Toke
                 .toString()
     }
     else {
+        Logger.e("immediateToken wasn't immediate: $labelImmediateToken")
         throw IllegalArgumentException("Non-immediate value was passed")
     }
 }
