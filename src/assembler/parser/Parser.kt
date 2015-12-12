@@ -40,7 +40,6 @@ fun parseTokensToFile(tokenStream : TokenStream, outputFile : File) : Path {
         }
     }
 
-
     return outputFile.toPath()
 }
 

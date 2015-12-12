@@ -88,7 +88,9 @@ class Lexer(val sourceFile : File) {
                 if (spaceSeparatedInputs[0].matches(LABEL_REGEX)) {
                     labelMap.putDefinitionSite(labelName, lineNumber)
                 }
-                else labelMap.putUsageSite(labelName, lineNumber)
+                else {
+                    labelMap.putUsageSite(labelName, lineNumber)
+                }
             }
         }
 
@@ -145,8 +147,13 @@ class Lexer(val sourceFile : File) {
 
                         val name = stripSpecialRegex(lineStrings[1])
                         val labelUsageRecord = labelMap[name]!!
-                        val hexString = Integer.toHexString(labelUsageRecord.definitionLine - currentInstructionLine - 2)
-                        Tokens.create(TokenType.Immediate, "0x${hexString.subSequence(2, hexString.length)}")
+                        Logger.v("labelUsageRecord = $labelUsageRecord")
+
+                        val intRelocation = labelUsageRecord.definitionLine - currentInstructionLine - 2
+                        val hexString = hexStringWidthCheck(Integer.toHexString(intRelocation), 6, intRelocation > -1)
+                        Logger.d("hexString = $hexString")
+
+                        Tokens.create(TokenType.Immediate, "0x${hexString}")
 
                     } else {
                         Tokens.create(TokenType.Immediate, lineStrings[1])
@@ -379,4 +386,14 @@ class Lexer(val sourceFile : File) {
         return reduceRight
     }
 
+    private fun hexStringWidthCheck(hexString: String, width: Int, shouldBePositive: Boolean) : String {
+        val extendHex = if (shouldBePositive) "0" else "F"
+
+        return if (hexString.length > width) {
+            hexString.subSequence(hexString.length - width, hexString.length).asString()
+        } else {
+            val diff = width - hexString.length
+            extendHex.repeat(diff) + hexString
+        }
+    }
 }

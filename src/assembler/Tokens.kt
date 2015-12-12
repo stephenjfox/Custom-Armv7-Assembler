@@ -224,6 +224,7 @@ object Tokens {
             TokenType.Or -> OrOperationToken(baseContent)
             TokenType.Store -> StoreOperationToken(baseContent)
             TokenType.Type2Bit -> TypeToken(baseContent, 2) // should only have two bits
+            TokenType.BranchWithLink -> BranchWithLinkCommand(baseContent)
             else -> object : Token("Dummy") {
                 init {
                     Logger.v("Dummy made. this.javaClass = ${this.javaClass}")

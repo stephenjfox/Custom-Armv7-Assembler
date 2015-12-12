@@ -22,7 +22,10 @@ import java.util.*
 
 fun moveCommandParse(moveToken : MoveCommand, iterator : ReversibleIterator<Token>) : String {
 
-    var registerBit = '1' // is an immediate value. BIT 25
+    val registerDest = iterator.next() as RegisterToken
+    val immOrRegToken = iterator.next()
+    val workingImmediate = immOrRegToken is ImmediateToken
+    var registerBit = if (workingImmediate) '1' else '0'
     val iteratorSize = iterator.size()
     val condition = moveToken.conditionInt.toBinaryString()
     val sBit = (if (moveToken.setSBit) '1' else '0')
@@ -31,17 +34,25 @@ fun moveCommandParse(moveToken : MoveCommand, iterator : ReversibleIterator<Toke
 
     Logger.v("Iterator.size = $iteratorSize")
 
-    // TODO: refactor out the repeated code blocks
     when (iteratorSize) {
         3 -> {
-            val registerDest = iterator.next() as RegisterToken
-            val immAtLeast12Token = iterator.next() as ImmediateToken
             val staticBits = ("00${registerBit}1" + (
                     if (!(moveToken.isMovT || moveToken.isMovW)) "101$sBit" // MOV(S)
                     else if (moveToken.isMovW) "0000" // MOVW
                     else "0100") /*MOVT*/)
-            val immBinString = paddingCheck(immAtLeast12Token.value.toBinaryString(), 16)
-            val (imm4, imm12) = splitImmediateString(immBinString, 4, 12)
+
+            val immBinString = if (workingImmediate) {
+                val immAtLeast12Token = immOrRegToken as ImmediateToken
+                paddingCheck(immAtLeast12Token.value.toBinaryString(), 16)
+            }
+            else {
+                val regToken = immOrRegToken as RegisterToken
+                paddingCheck(regToken.nibble, 16)
+            }
+
+            val immList = splitImmediateString(immBinString, 4, 12)
+            val imm4: String = immList[0]
+            val imm12: String = immList[1]
             // this is the order of the bits for the move command.
             builder.append(condition)
                     .append(staticBits)
@@ -199,7 +210,7 @@ fun branchOperationParse(branchToken : CommandToken, labelImmediateToken : Token
     if (labelImmediateToken is ImmediateToken) {     // we'll break in the other case. FOR NOW
 
         val immediateValue = labelImmediateToken.value
-        val immediateBinary = immediateValue.toBinaryString()
+        val immediateBinary = paddingCheck(immediateValue.toBinaryString(), 24)
 
         Logger.d("Immediate as binary = $immediateBinary")
         Logger.d("Immediate binary length = ${immediateBinary.length}")

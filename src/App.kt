@@ -11,6 +11,7 @@ import java.io.File
  */
 fun main(args : Array<String>) {
     GlobalConfig.initDefaults()
+    GlobalConfig.setProperty("verbose", true)
     GlobalConfig.setProperty("debug", true)
 
     val lexer = Lexer(File("src/testAssembly.txt"))

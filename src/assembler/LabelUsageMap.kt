@@ -14,13 +14,24 @@ class LabelUsageMap(val symbolMap : MutableMap<String, LabelUsageRecord> = HashM
             usageRecord.useLines.add(lineNumber)
             symbolMap[name] = usageRecord
         }
+        else {
+            val list = ArrayList<Int>()
+            list.add(lineNumber)
+            symbolMap[name] = LabelUsageRecord(name, -1, list)
+        }
         Logger.d("symbolMap = $symbolMap")
     }
 
     fun putDefinitionSite(name : String, lineNumber : Int) {
         Logger.v("LabelUsageMap -> putDefinitionSite")
         Logger.d("name(key) = [$name], lineNumber = [$lineNumber]")
-        symbolMap[name] = LabelUsageRecord(name, lineNumber, ArrayList())
+        val labelUsageRecord = symbolMap[name]
+        if (labelUsageRecord == null) {
+            symbolMap[name] = LabelUsageRecord(name, lineNumber, ArrayList())
+        }
+        else {
+            symbolMap[name]!!.definitionLine = lineNumber
+        }
         Logger.d("symbolMap = $symbolMap")
     }
 
