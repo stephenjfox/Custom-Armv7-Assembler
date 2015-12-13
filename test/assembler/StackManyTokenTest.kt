@@ -8,7 +8,7 @@ import org.junit.Test as test
  * Created by Stephen on 12/13/2015.
  * In project: Custom-Armv7-Assembler
  */
-class StackManyTokenTest : BaseAssemblerTest() {
+open class StackManyTokenTest : BaseAssemblerTest() {
 
     val registers = ArrayList<Token>()
 

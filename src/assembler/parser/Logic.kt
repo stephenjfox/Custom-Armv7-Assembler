@@ -226,6 +226,10 @@ fun branchOperationParse(branchToken : CommandToken, labelImmediateToken : Token
     }
 }
 
+fun pushPopOperationParse(stackOpToken: CommandToken, iterator: Iterator<Token>): String {
+    throw NotImplementedError("TODO - Time to get it home.")
+}
+
 fun paddingCheck(binary : String, capacity : Int) : String {
     var returnStr = (if (binary.length > capacity) {
         // assume "Modified Immediate Constants"
