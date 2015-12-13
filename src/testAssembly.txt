@@ -18,11 +18,11 @@
 #B 0xFFFFF6 # Branch always -2 # works, so no change
 #
 MOVW R4, 0 # "Zero out" one of the register we want to use
-MOVT R4, 0x3F20 # Add the "array pointer" into the register
+MOVT R4, 0x3F20 # Add the value of the location we want into the register
 ADD R2, R4, 0x10 # Add 0x10 to R4 value and store in R2
-LDR R3, R2 # Writes what R2 points to R3
-ORR R3, R3, 0x200000 #
-STR R3, R2 # immediate ARM
+LDR R3, R2 # Writes, what's at address held by R2, to R3
+ORR R3, R3, 0x200000 # Ensures a certain bit is lit
+STR R3, R2 # I don't want to talk about my lack of understanding...
 MOVW R2, 0x8000 # page A8-484 Encoding A2
 ADD R3, R4, 0x20
 ADD R5, R4, 0x2C # Setting the memory register to look at
@@ -33,6 +33,6 @@ BLK %delay%
 B 0xFFFFF6 # Branch always -2 # works, so no change
 
 %delay% MOVT R7, 0x0005 # store a big number in R7
-%_innerLoop% SUBS R7, R7, 0x1 # subtract 1 from a big number in register 6
+%_innerLoop% SUBS R7, R7, 0x1 # subtract 1 from a big number in parameter register
 BNE %_innerLoop% # Branch conditionally back -3 # to the preceding function
 MOV R15, R14

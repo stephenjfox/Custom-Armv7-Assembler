@@ -10,8 +10,6 @@ import java.lang.Integer.toBinaryString
  * Created by stephen on 11/28/15.
  */
 abstract class Token(val content : String) {
-    // I think I'll need this with the subroutines
-    fun hasEndOfLineCharacter() : Boolean = content.endsWith('\n') || content.endsWith('\r')
 
     override fun toString() : String {
         return "${this.javaClass.simpleName}: ${this.content}"
@@ -90,7 +88,6 @@ class MoveCommand : DataOperationCommandToken {
 class LoadOperationToken : CommandToken {
 
     override val conditionInt : Int
-        get() = field
 
     constructor(content : String) : super(content) {
         // scratch: this should only be LDR<c> as of Dec 1, 2015
@@ -123,7 +120,6 @@ class ShiftToken : Token {
     val shiftAmount : Int
 
     constructor(content : String) : super(content) {
-
         // TODO: Support for the irregularly used 5-param functions
         // Ex being "A8.8.66 LDR (register, ARM)"
         shiftAmount = parseImmediateValue(content)
@@ -194,11 +190,21 @@ class TypeToken(baseContent : String, val bitLimit : Int) : Token(baseContent) {
     }
 }
 
-class LabelDefinitionToken(baseContent : String, val lineNumber : Int) : Token(baseContent) {
-    // things
+class PushManyToken(baseContent: String) : CommandToken(baseContent) {
+    override val conditionInt: Int
+    init {
+        val pushString = baseContent.substring(4)
+        conditionInt = conditionCodeValue(pushString)
+    }
 }
 
-class LabelUsageToken(baseContent : String, val lineNumber : Int) : Token(baseContent)
+class PopManyToken(baseContent: String) : CommandToken(baseContent) {
+    override val conditionInt: Int
+    init {
+        val substring = baseContent.substring(3)
+        conditionInt = conditionCodeValue(substring)
+    }
+}
 
 object Tokens {
 
@@ -225,6 +231,8 @@ object Tokens {
             TokenType.Store -> StoreOperationToken(baseContent)
             TokenType.Type2Bit -> TypeToken(baseContent, 2) // should only have two bits
             TokenType.BranchWithLink -> BranchWithLinkCommand(baseContent)
+            TokenType.Push -> PushManyToken(baseContent)// thing
+            TokenType.Pop -> PopManyToken(baseContent)// other thing
             else -> object : Token("Dummy") {
                 init {
                     Logger.v("Dummy made. this.javaClass = ${this.javaClass}")
@@ -236,5 +244,5 @@ object Tokens {
 
 enum class TokenType {
     Move, Load, Store, Add, Subtract, Branch, Register, Immediate, Or, Shift, NewLine,
-    Type2Bit, BranchWithLink
+    Type2Bit, BranchWithLink, Push, Pop
 }

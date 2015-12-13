@@ -106,6 +106,15 @@ class Lexer(val sourceFile : File) {
             if ( currentIndex < lines.lastIndex) {
                 TokenStream.yield(Tokens.create(TokenType.NewLine, "I DON'T NEED TEXT HERE"))
             }
+            /* TODO: read the following block comment
+            * I need a stack (push = increment before, pop = increment after)
+            * IN MY ASSEMBLY TEXT FILES: R13 is the stack head
+            * I need to lex a PUSH and POP instruction (that will take the most time)
+            * They will both need to be checked at every level.
+            * Their only arguments are Registers, so that is easy (for-loop linestrings variable)
+            * I need to "initialize" R13, somewhere. Idc, MOVT R13 0x80.
+            *   - No one seems to know if something more is needed.
+            */
         }
         /*
         * 3) Each function invocation will perform the following
@@ -138,29 +147,15 @@ class Lexer(val sourceFile : File) {
                  * branch: B<c> <imm24>
                  */
                 if (firstString.startsWith("B")) {
-                    val branchToken = if (firstString.startsWith("BLK")) {
-                        Tokens.create(TokenType.BranchWithLink, firstString)
-                    } else {
-                        Tokens.create(TokenType.Branch, firstString)
-                    }
-                    val imm24Token = (if (lineStrings[1].matches(LABEL_REGEX)){
-
-                        val name = stripSpecialRegex(lineStrings[1])
-                        val labelUsageRecord = labelMap[name]!!
-                        Logger.v("labelUsageRecord = $labelUsageRecord")
-
-                        val intRelocation = labelUsageRecord.definitionLine - currentInstructionLine - 2
-                        val hexString = hexStringWidthCheck(Integer.toHexString(intRelocation), 6, intRelocation > -1)
-                        Logger.d("hexString = $hexString")
-
-                        Tokens.create(TokenType.Immediate, "0x${hexString}")
-
-                    } else {
-                        Tokens.create(TokenType.Immediate, lineStrings[1])
-                    })
-                    TokenStream.yieldSequential(branchToken, imm24Token)
+                    branchTokenYield(currentInstructionLine, firstString, lineStrings)
                 }
-                else {
+                /*
+                 * push: PUSH<c> <R_1> to <R_15>
+                 * pop: POP<c> <R_1> to <R_15>
+                 */
+                else if (firstString.startsWith("P")) {
+                    stackManyTokenYield(firstString, lineStrings.subList(1, lineStrings.size))
+                } else {
                     Logger.e("Syntax $firstString a valid token")
                     throw IllegalArgumentException("Dirty and short inputs $lineStrings")
                 }
@@ -185,6 +180,12 @@ class Lexer(val sourceFile : File) {
                      * store: STR<c> <Rt> <Rn>
                      */
                     loadStoreRegisterTokenYield(lineStrings)
+                } else if (firstString.startsWith("P")) {
+                    /*
+                     * push: PUSH<c> <R_1> to <R_15>
+                     * pop: POP<c> <R_1> to <R_15>
+                     */
+                    stackManyTokenYield(firstString, lineStrings.subList(1, lineStrings.size))
                 } else {
                     println("Syntax error on line $currentInstructionLine. Arithmetic operation must have at least three arguments")
                     error("code: $lineStrings")
@@ -209,6 +210,13 @@ class Lexer(val sourceFile : File) {
                     addSubtractTokenYield(lineStrings)
                 }
                 /*
+                 * push: PUSH<c> <R_1> to <R_15>
+                 * pop: POP<c> <R_1> to <R_15>
+                 */
+                else if (firstString.startsWith("P")) {
+                    stackManyTokenYield(firstString, lineStrings.subList(1, lineStrings.size))
+                }
+                /*
                  * or: ORR(S)<c> <Rd> <Rn> <imm12>
                  */
                 else if (firstString.startsWith("OR")) {
@@ -227,12 +235,31 @@ class Lexer(val sourceFile : File) {
                     addSubtractTokenYield(lineStrings)
                 }
                 /*
+                 * push: PUSH<c> <R_1> to <R_15>
+                 * pop: POP<c> <R_1> to <R_15>
+                 */
+                else if (firstString.startsWith("P")) {
+                    stackManyTokenYield(firstString, lineStrings.subList(1, lineStrings.size))
+                }
+                /*
                  * or: ORR{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
                  */
                 else if (firstString.startsWith("ORR")) {
                     orFunctionTokenYield(lineStrings)
                 } else {
-                    error("Probable syntax error on line: $currentInstructionLine\nThrown from Lexer.kt:150ish")
+                    error("Probable syntax error on line: $currentInstructionLine")
+                }
+            }
+            in 7..15 -> {
+                /*
+                 * push: PUSH<c> <R_1> to <R_15>
+                 * pop: POP<c> <R_1> to <R_15>
+                 */
+                if (firstString.startsWith("P")) {
+                    stackManyTokenYield(firstString, lineStrings.subList(1, lineStrings.size))
+                }
+                else {
+                    throw IllegalArgumentException("Probable syntax error on line: $currentInstructionLine\nOnly PUSH/POP should be this long of a command")
                 }
             }
             else -> {
@@ -240,6 +267,14 @@ class Lexer(val sourceFile : File) {
                 throw IllegalArgumentException("Bad arguments were passed at line #$currentInstructionLine")
             }
         }
+    }
+
+    private fun stackManyTokenYield(stackOpString: String, subListOfRegisters: List<String>) {
+        // todo: fill out the thing
+        // Because we're using R13 as the true stack pointer, we'll be using
+        // A8.8.132 (POP) encoding A1 and A8.8.133 (PUSH) encoding A1
+        val opType = checkPushOrPop(stackOpString)
+
     }
 
     private fun moveTokenYield(listOfStrings : List<String>) {
@@ -250,6 +285,30 @@ class Lexer(val sourceFile : File) {
         val immediateOrRegisterToken = (Tokens.create(registerOrImmediate(secondParam), secondParam))
 
         TokenStream.yieldSequential(moveToken, registerToken, immediateOrRegisterToken)
+    }
+
+    private fun branchTokenYield(currentInstructionLine: Int, firstString: String, lineStrings: List<String>) {
+        val branchToken = if (firstString.startsWith("BLK")) {
+            Tokens.create(TokenType.BranchWithLink, firstString)
+        } else {
+            Tokens.create(TokenType.Branch, firstString)
+        }
+        val imm24Token = (if (lineStrings[1].matches(LABEL_REGEX)) {
+
+            val name = stripSpecialRegex(lineStrings[1])
+            val labelUsageRecord = labelMap[name]!!
+            v("labelUsageRecord = $labelUsageRecord")
+
+            val intRelocation = labelUsageRecord.definitionLine - currentInstructionLine - 2
+            val hexString = hexStringWidthCheck(Integer.toHexString(intRelocation), 6, intRelocation > -1)
+            d("hexString = $hexString")
+
+            Tokens.create(TokenType.Immediate, "0x$hexString")
+
+        } else {
+            Tokens.create(TokenType.Immediate, lineStrings[1])
+        })
+        TokenStream.yieldSequential(branchToken, imm24Token)
     }
 
     private fun loadStoreRegisterTokenYield(stringLineInputs : List<String>) {
@@ -339,12 +398,12 @@ class Lexer(val sourceFile : File) {
 
     /*  HELPER FUNCTIONS  */
 
-
     private fun addOrSubTokenType(addOrSub : String) : TokenType {
         return (if (addOrSub[0] == 'S' && addOrSub[1] == 'U' && addOrSub[2] == 'B')
             TokenType.Subtract
         else TokenType.Add)
     }
+
 
     private fun getStrOrLdr(string : String) : TokenType {
         return if (string.startsWith("LDR")) {
@@ -352,14 +411,17 @@ class Lexer(val sourceFile : File) {
         } else TokenType.Store
     }
 
+    private fun checkPushOrPop(stackOpString: String) =
+            if (stackOpString.startsWith("POP")) TokenType.Pop else TokenType.Push
+
+    private fun registerOrImmediate(ambiguousAssembly : String) =
+            (if (ambiguousAssembly[0] == 'R') TokenType.Register else TokenType.Immediate)
+
     private fun stripSpecialRegex(sourceString: String): String {
         return sourceString.subSequence(
                 sourceString.indexOf(REGEX_WRAP_CHAR) + 1,
                 sourceString.lastIndexOf(REGEX_WRAP_CHAR)).asString()
     }
-
-    private fun registerOrImmediate(ambiguousAssembly : String) =
-            (if (ambiguousAssembly[0] == 'R') TokenType.Register else TokenType.Immediate)
 
     private fun getSourceLinesConcat(delimiter : String = "|") : String {
         v("Reading files")
