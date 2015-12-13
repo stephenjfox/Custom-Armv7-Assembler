@@ -1,5 +1,7 @@
 package assembler
 
+import assembler.TokenStream.Companion.yield
+import assembler.TokenStream.Companion.yieldSequential
 import model.GlobalConfig
 import model.Logger
 import model.Logger.d
@@ -104,7 +106,7 @@ class Lexer(val sourceFile : File) {
 
             tokenizeLine(spaceSeparatedInputs, currentIndex + 1)
             if ( currentIndex < lines.lastIndex) {
-                TokenStream.yield(Tokens.create(TokenType.NewLine, "I DON'T NEED TEXT HERE"))
+                yield(Tokens.create(TokenType.NewLine, "I DON'T NEED TEXT HERE"))
             }
             /* TODO: read the following block comment
             * I need a stack (push = increment before, pop = increment after)
@@ -269,12 +271,27 @@ class Lexer(val sourceFile : File) {
         }
     }
 
+    /**
+     * Because we're using R13 as the true stack pointer, we'll be using
+     * A8.8.132 (POP) encoding A1 and A8.8.133 (PUSH) encoding A1
+     * Will yield to the [TokenStream]:
+     * a) either [PushManyToken] or [PopManyToken] and
+     * b) at least one [RegisterToken]
+     */
     private fun stackManyTokenYield(stackOpString: String, subListOfRegisters: List<String>) {
-        // todo: fill out the thing
-        // Because we're using R13 as the true stack pointer, we'll be using
-        // A8.8.132 (POP) encoding A1 and A8.8.133 (PUSH) encoding A1
         val opType = checkPushOrPop(stackOpString)
+        val stackOpToken = Tokens.create(opType, stackOpString)
+        yield(stackOpToken)
 
+        for ((index, registerString) in subListOfRegisters.withIndex()) {
+            // try make register
+            try {
+                val newToken = Tokens.create(TokenType.Register, registerString)
+                yield(newToken)
+            } catch (e: Exception) {
+                throw IllegalArgumentException("SYNTAX ERROR - Register #$index wasn't parse-able: $registerString")
+            }
+        }
     }
 
     private fun moveTokenYield(listOfStrings : List<String>) {
@@ -284,7 +301,7 @@ class Lexer(val sourceFile : File) {
         val secondParam = listOfStrings[2]
         val immediateOrRegisterToken = (Tokens.create(registerOrImmediate(secondParam), secondParam))
 
-        TokenStream.yieldSequential(moveToken, registerToken, immediateOrRegisterToken)
+        yieldSequential(moveToken, registerToken, immediateOrRegisterToken)
     }
 
     private fun branchTokenYield(currentInstructionLine: Int, firstString: String, lineStrings: List<String>) {
@@ -308,7 +325,7 @@ class Lexer(val sourceFile : File) {
         } else {
             Tokens.create(TokenType.Immediate, lineStrings[1])
         })
-        TokenStream.yieldSequential(branchToken, imm24Token)
+        yieldSequential(branchToken, imm24Token)
     }
 
     private fun loadStoreRegisterTokenYield(stringLineInputs : List<String>) {
@@ -322,7 +339,7 @@ class Lexer(val sourceFile : File) {
                 "\tR1Token = {$register1Token}" +
                 "\tR2Token = {$register2Token}")
 
-        TokenStream.yieldSequential(principalToken, register1Token, register2Token)
+        yieldSequential(principalToken, register1Token, register2Token)
 
         if (stringLineInputs.size > 3) {
 
@@ -330,12 +347,12 @@ class Lexer(val sourceFile : File) {
                     stringLineInputs[3])
 
             if (stringLineInputs.size == 4) {
-                TokenStream.yield(fourthToken)
+                yield(fourthToken)
             } else if (stringLineInputs.size == 5) {
                 // FIXME: can be a register or shift. Please fix this soon, because...
                 // commands like STREXD (write a 64-bit value to TWO registers) are going to be a thing
                 val shiftToken = Tokens.create(TokenType.Shift, stringLineInputs[4])
-                TokenStream.yieldSequential(fourthToken, shiftToken)
+                yieldSequential(fourthToken, shiftToken)
             } else {
                 error("there was an 'LDR' instruction that was too long.\nInstruction = $stringLineInputs")
             }
@@ -349,13 +366,13 @@ class Lexer(val sourceFile : File) {
 
         val semanticOperand2Token = Tokens.create(registerOrImmediate(operands[3]), operands[3])
 
-        TokenStream.yieldSequential(principalToken, register1Token, register2Token, semanticOperand2Token)
+        yieldSequential(principalToken, register1Token, register2Token, semanticOperand2Token)
         if (operands.size > 4) {
 
             if (operands.size == 5) {
                 // it's a shift
                 val shiftToken = Tokens.create(TokenType.Shift, operands[4])
-                TokenStream.yield(shiftToken)
+                yield(shiftToken)
             } else if (operands.size == 6) {
                 // token5 is a "type", which is just a 2-bit value
                 // token6 is a register
@@ -379,19 +396,19 @@ class Lexer(val sourceFile : File) {
         val r2 = Tokens.create(TokenType.Register, orChunks[2])
         var regOrImmediate = Tokens.create(registerOrImmediate(orChunks[3]), orChunks[3])
 
-        TokenStream.yieldSequential(token, r1, r2, regOrImmediate)
+        yieldSequential(token, r1, r2, regOrImmediate)
         if (orChunks.size > 4) {
             if (orChunks.size == 5) {
                 // we've got an immediate shift value
                 val immShift = Tokens.create(TokenType.Shift, orChunks[4])
 
-                TokenStream.yield(immShift)
+                yield(immShift)
             } else if (orChunks.size == 6) {
                 // it's a 2-bit type and a 4-bit register
                 val typeTok = Tokens.create(TokenType.Type2Bit, orChunks[4])
                 val finRegister = Tokens.create(TokenType.Register, orChunks[5])
 
-                TokenStream.yieldSequential(typeTok, finRegister)
+                yieldSequential(typeTok, finRegister)
             }
         }
     }
