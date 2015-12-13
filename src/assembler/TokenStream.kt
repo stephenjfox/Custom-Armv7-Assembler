@@ -24,7 +24,7 @@ class TokenStream(val streamSource: List<Token>) : ReversibleIterable<Token> {
         return streamSource.toString()
     }
 
-    inner class TokenStreamIterator : ReversibleIterator<Token> {
+    private inner class TokenStreamIterator : ReversibleIterator<Token> {
 
         private var cursor : Int = 0
 
@@ -59,6 +59,12 @@ class TokenStream(val streamSource: List<Token>) : ReversibleIterable<Token> {
             val ret = Vector<Token>()
             tokens.forEach { ret.add(it) }
             return TokenStream(ret)
+        }
+
+        fun yieldSequential(tokens: Iterable<Token>) {
+            for (token in tokens) {
+                yield(token)
+            }
         }
 
         fun yieldSequential(vararg tokens : Token) {
