@@ -16,5 +16,5 @@ fun main(args : Array<String>) {
 
     val lexer = Lexer(File("src/testAssembly.txt"))
     val tokenStream = lexer.lex()
-    parseTokensToFile(tokenStream, File("testAssembleCompilation.img"))
+    parseTokensToFile(tokenStream, File("kernel7.assembled.img"))
 }
