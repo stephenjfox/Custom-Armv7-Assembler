@@ -1,5 +1,6 @@
 package assembler
 
+import com.fox.general.PredicateTests
 import model.GlobalConfig
 import model.Logger
 import java.lang.Integer.parseInt
@@ -110,6 +111,7 @@ class RegisterToken : Token {
         }
 
     constructor(content : String) : super(content) {
+        PredicateTests.isTrue(content[0] == 'R')
         registerNumber = parseInt(content.substring(1)) // the '15' in 'R15'
     }
 

@@ -35,7 +35,9 @@ class StackOpParsingTest : StackManyTokenTest() {
         val staticBits = "100100101101"
         val registerStr = "0000000000000010" // I want this determination delegated to a function
 
-        assertEquals("$correctCond$staticBits$registerStr", evaluatedString,
+        val testShouldBe = "$correctCond$staticBits$registerStr"
+        println("testShouldBe.length = ${testShouldBe.length}")
+        assertEquals(testShouldBe, evaluatedString,
                 "This implementation may not be correct")
     }
 
@@ -55,7 +57,9 @@ class StackOpParsingTest : StackManyTokenTest() {
         // R1 one was removed
         val registerStr = "0000000000111100" // I want this determination delegated to a function
 
-        assertEquals("$correctCond$staticBits$registerStr", evaluatedString,
+        val testShouldBe = "$correctCond$staticBits$registerStr"
+        println("testShouldBe.length = ${testShouldBe.length}")
+        assertEquals(testShouldBe, evaluatedString,
                 "This implementation may not be correct")
     }
 }

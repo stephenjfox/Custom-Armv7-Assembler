@@ -227,7 +227,43 @@ fun branchOperationParse(branchToken : CommandToken, labelImmediateToken : Token
 }
 
 fun pushPopOperationParse(stackOpToken: CommandToken, iterator: Iterator<Token>): String {
-    throw NotImplementedError("TODO - Time to get it home.")
+    isTrue(stackOpToken is PushManyToken || stackOpToken is PopManyToken)
+    val condition = stackOpToken.conditionInt.toBinaryString()
+    val getStatic12Bits: () -> String = pushPopFillerBits(stackOpToken) // for "lazy" evaluation
+    val builder = StringBuilder()
+            .append(condition)
+            .append(getStatic12Bits())
+
+    val registersToUse : MutableList<Int> = LinkedList()
+    // get register numbers
+    while (iterator.hasNext()) {
+        try {
+            val currentRegister = iterator.next() as RegisterToken
+            registersToUse += currentRegister.registerNumber // aliases List.add
+        } catch(e: Exception) {
+            throw IllegalStateException("Late syntax error. NON-REGISTER passed to stack encoding")
+        }
+    }
+    val registerString = Array(16, { ind: Int ->
+        if (registersToUse.contains(ind)) "1" else "0"
+    }).reversedArray().reduce { acc, curr -> acc.plus(curr) }
+
+    builder.append(registerString)
+
+    return builder.toString()
+}
+
+/**
+ * Returns the 12, predetermined bits that fill in between the condition code and
+ * the register list. As defined in armv7-a-r-manual.pdf, pg 535 & 6 of 2734
+ */
+private fun pushPopFillerBits(stackOpToken: CommandToken): () -> String {
+    return {
+        val lead3 = "100"
+        val mid5 = if (stackOpToken is PopManyToken) "01011" else "10010"
+        val lastFour = "1101"
+        lead3.concat(mid5).concat(lastFour)
+    }
 }
 
 fun paddingCheck(binary : String, capacity : Int) : String {
