@@ -2,12 +2,7 @@ package assembler.parser
 
 import assembler.*
 import com.fox.general.PredicateTests.isTrue
-import model.Logger
-import model.ReversibleIterator
-import model.not
-import model.rotateLeft
-import model.size
-import model.toBinaryString
+import model.*
 import java.util.*
 
 /**
@@ -164,7 +159,9 @@ fun orOperationParse(orToken : OrOperationToken, iterator : ReversibleIterator<T
     val registerDest = iterator.next() as RegisterToken
     val registerSource = iterator.next() as RegisterToken
     val sBit = (if (orToken.setSBit) '1' else '0')
-    val staticBits = "0011100$sBit"
+    val nextToken = iterator.next()
+    val regBit = if (nextToken is ImmediateToken) '1' else '0'
+    val staticBits = "00${regBit}1100$sBit"
 
     val iteratorSize = iterator.size()
 
@@ -173,7 +170,7 @@ fun orOperationParse(orToken : OrOperationToken, iterator : ReversibleIterator<T
     when (iteratorSize) {
         4 -> {
             // ORR{S}<c> <Rd>, <Rn>, #<const>
-            val immToken = iterator.next() as ImmediateToken
+            val immToken = nextToken as ImmediateToken
             // now to deal with numbers that are too big
             val fixedTokenVal = modifiedConstantCheck(immToken)
 

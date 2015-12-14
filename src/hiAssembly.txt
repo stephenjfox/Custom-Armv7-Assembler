@@ -1,0 +1,45 @@
+# SETUP R0 for the GPIO base
+MOVW R0, 0x1000
+MOVT R0, 0x3F20 # R0 is now holding the correct address
+
+# SETUP "letter" registers
+MOVW R8, 0x0048 # 'H'
+MOVW R9, 0x0069 # 'i'
+MOVW R11, 0x0020 # ' ', that's a "space"
+
+# SETUP LED access
+MOVW R4, 0 # "Zero out" one of the register we want to use
+MOVT R4, 0x3F20 # Add the value of the location we want into the register
+MOVW R13 0x9000 # INIT THE STACK
+ADD R2, R4, 0x10 # Add 0x10 to R4 value and store in R2
+LDR R3, R2 # Writes, what's at address held by R2, to R3
+ORR R3, R3, 0x200000 # Ensures a certain bit is lit
+STR R3, R2 # I don't want to talk about my lack of understanding...
+MOVW R2, 0x8000 # page A8-484 Encoding A2
+MOVT R10 0x0007 # Put a big number, which will go on the stack later
+
+# Make registers with bit addresses
+ADD R3, R4, 0x20 # address for the set bit
+ADD R5, R4, 0x2C # address for the UNset bit
+
+%main% STR R2, R3 # Light the LED
+PUSH R10
+BLK %write_HI%
+BLK %delay%
+POP R10
+
+STR R2, R5 # Dim the LED
+PUSH R10
+BLK %delay%
+POP R10
+B %main% # This can't take any more of a function body at the moment.
+
+%delay% LDR R7, R13 # store a big number in R7
+%_innerLoop% SUBS R7, R7, 0x1 # subtract 1 from a big number in parameter register
+BNE %_innerLoop% # Branch conditionally back -3 # to the preceding function
+MOV R15, R14
+
+%write_HI% STR R8, R0
+STR R9, R0
+STR R11, R0
+MOV R15, R14

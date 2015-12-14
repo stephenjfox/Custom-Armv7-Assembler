@@ -14,7 +14,7 @@ fun main(args : Array<String>) {
     GlobalConfig.setProperty("verbose", true)
     GlobalConfig.setProperty("debug", true)
 
-    val lexer = Lexer(File("src/testAssembly.txt"))
+    val lexer = Lexer(File("src/hiAssembly.txt"))
     val tokenStream = lexer.lex()
-    parseTokensToFile(tokenStream, File("kernel7.assembled.img"))
+    parseTokensToFile(tokenStream, File("HIcompilation.img"))
 }

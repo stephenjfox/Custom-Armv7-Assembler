@@ -410,6 +410,9 @@ class Lexer(val sourceFile : File) {
 
                 yieldSequential(typeTok, finRegister)
             }
+            else {
+                throw IllegalStateException("Too many arguments to the ORR statement")
+            }
         }
     }
 
