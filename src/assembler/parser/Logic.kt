@@ -240,13 +240,21 @@ fun pushPopOperationParse(stackOpToken: CommandToken, iterator: Iterator<Token>)
         try {
             val currentRegister = iterator.next() as RegisterToken
             registersToUse += currentRegister.registerNumber // aliases List.add
+            Logger.v("Added register $currentRegister to register list")
         } catch(e: Exception) {
             throw IllegalStateException("Late syntax error. NON-REGISTER passed to stack encoding")
         }
     }
-    val registerString = Array(16, { ind: Int ->
+    val arrayOfRegisters = Array(16, { ind: Int ->
         if (registersToUse.contains(ind)) "1" else "0"
-    }).reversedArray().reduce { acc, curr -> acc.plus(curr) }
+    })
+
+    Logger.d("Array of register = ${arrayOfRegisters.joinToString()}")
+
+    val registerString = arrayOfRegisters.reversedArray()
+            .reduce { acc, curr -> acc.plus(curr) }
+
+    Logger.d("The register string reduction = $registerString")
 
     builder.append(registerString)
 
